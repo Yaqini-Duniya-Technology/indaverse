@@ -84,6 +84,15 @@ The repository separates the frontend (`apps/web`) from the API (`apps/api`) so 
 - **For collaborators:** visible architecture, explicit capability boundaries and a roadmap that separates implemented features from ambition.
 - **For emerging African digital creators:** a long-term vision of more accessible creative tools built with regional relevance in mind.
 
+## Engineering documentation and delivery progress
+
+- **[Architecture diagram](docs/ARCHITECTURE.md)** — visual overview of web, API, creative studios, storage and provider boundaries.
+- **[Development milestone tracker](docs/MILESTONES.md)** — evidence-based status of implemented MVP work, prototypes and planned releases.
+- **[Demonstration gallery](docs/GALLERY.md)** — curated links to studio interfaces, the Zamara blueprint and screenshot slots awaiting real captures.
+- **[GitHub Actions CI](.github/workflows/ci.yml)** — automated Next.js build and isolated FastAPI regression tests. Check the workflow's latest run before interpreting its status.
+
+These resources document engineering progress; they do not imply connected generative-AI providers or a production launch.
+
 ## Demo and engineering evidence
 
 The [demo walkthrough](docs/DEMO.md) shows how to prepare and demonstrate the existing Game Studio blueprint workflow, including the **Legends of Zamara** example, validation preview, saved revisions and a separately prepared browser scene prototype.
