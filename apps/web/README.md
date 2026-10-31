@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# IndaVerse — Web Application
 
-## Getting Started
+The creator-facing frontend of **[IndaVerse](https://github.com/Yaqini-Duniya-Technology/indaverse)**, developed by **Yaqini & Duniya Technology**.
 
-First, run the development server:
+**Stage:** Local development MVP, not a publicly launched production application.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## What this frontend supports
+
+The Next.js application provides creator dashboards, account interfaces, project navigation and workspaces for the Music, Story, Video, Web & App and Game studios. The backend is a separate FastAPI application in `../api`; studio records, revisions and asset workflows depend on that service and its configured database.
+
+The Game Studio includes blueprint-oriented tools and browser-based scene prototyping. It does not generate a complete playable game automatically. Generative media providers are not yet connected.
+
+## Technology
+
+- Next.js 16, React 19 and TypeScript
+- Three.js for browser 3D functionality
+- Tailwind CSS
+- FastAPI backend and PostgreSQL data services (separate application)
+
+## Local development
+
+From the **repository root**:
+
+```powershell
+npm.cmd --prefix apps/web ci
+npm.cmd --prefix apps/web run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. Backend-dependent functionality requires the API and database services described in the [root setup guide](../../README.md).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+For the full local stack, use the repository launcher after configuring your environment:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Start-IndaVerse.ps1
+```
 
-## Learn More
+### Production build check
 
-To learn more about Next.js, take a look at the following resources:
+```powershell
+npm.cmd --prefix apps/web run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+A successful build confirms frontend compilation; it does not establish deployment security, provider availability or browser compatibility across all devices.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Source and project status
 
-## Deploy on Vercel
+- [Main README and current development stage](../../README.md)
+- [Demo walkthrough](../../docs/DEMO.md)
+- [FastAPI backend](../api)
+- [Yaqini & Duniya Technology](https://github.com/Yaqini-Duniya-Technology)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**IndaVerse — Create with structure. Build with imagination.**
