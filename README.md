@@ -1,103 +1,172 @@
+<div align="center">
+
 # IndaVerse
 
-A creative workspace developed by Yaqini & Duniya Technology.
+### One creative universe. Five studios. Your ideas, structured for creation.
 
-Organise creative direction, drafts and assets across Music, Video, Story,
-Web & App, and Game studios.
+**Music · Video · Stories · Web & Apps · 2D/3D Games**
 
-## Current MVP
+An evolving, multi-studio creative workspace by **[Yaqini & Duniya Technology](https://github.com/Yaqini-Duniya-Technology)**.
 
-- Account registration, sign-in and private project workflows.
-- Project creation, editing, search and studio navigation.
-- Saved creative briefs, project plans and reviews.
-- Music writing, song revisions and generation request history.
-- Story characters, scenes and reading previews.
-- Video scripts, shot planning and revision history.
-- Website and app design blueprints.
-- 2D and 3D game blueprints, import validation and export.
-- Game draft recovery and optional version-checked autosave.
-- Visual layout tools, saved 3D scenes and browser prototype testing.
+**Development stage: Functional local MVP · Active engineering · Not yet production launched**
 
-## Technology
+[Explore the source](https://github.com/Yaqini-Duniya-Technology/indaverse) · [Demo walkthrough](docs/DEMO.md) · [Founder portfolio](https://indaobanyi.vercel.app)
 
-Next.js, React, TypeScript, Three.js, FastAPI, Pydantic, SQLAlchemy,
-PostgreSQL, Alembic and Redis.
+</div>
 
-## Windows setup
+---
 
-Prerequisites: Python 3.13, a compatible Node.js installation and Docker
-Desktop with its Linux engine running.
+## The idea
 
-From the repository root:
+Creative work is often fragmented across documents, planning tools, file folders and disconnected apps. **IndaVerse** brings creative briefs, drafts, revisions, visual assets and project organization into one connected workspace.
 
-    python -m venv apps/api/.venv
-    & "apps/api/.venv/Scripts/python.exe" -m pip install -r apps/api/requirements.txt
-    npm.cmd --prefix apps/web ci
+The long-term vision is to help creators turn ideas into music, stories, video concepts, software blueprints and interactive game experiences—while keeping people in control of creative decisions.
 
-For a fresh installation, copy .env.example to .env and
-apps/web/.env.local.example to apps/web/.env.local.
-Preserve existing configuration files.
+**What exists today:** an integrated local development MVP for organizing projects, drafting and revising content, planning creative work, and prototyping aspects of 3D game scenes. **What does not exist yet:** a fully connected generative-AI production studio or complete game-generation engine.
 
-Replace REPLACE_WITH_RANDOM_HEX in both database settings with the same
-random hexadecimal password. Replace REPLACE_WITH_RANDOM_SECRET with an
-independent random secret. Generate values locally with Python's secrets
-module. Never commit real credentials.
+## Five creative studios
 
-Changing configuration does not change the password in an existing
-PostgreSQL volume.
+| Studio | Available development-MVP capabilities | Next major goal |
+| --- | --- | --- |
+| **Music Studio** | Music project records, songwriting workflows, revisions, audio assets and generation-request history | Connect and validate a real music generation provider |
+| **Story Studio** | Story projects, characters, scenes and reading previews | Improve long-form composition and creative assistance |
+| **Video Studio** | Video project records, scripts, shot planning and revision history | Integrate production-grade media generation and export |
+| **Web & App Studio** | Software-project records and website/app design blueprints | Progress from planning artifacts toward reproducible code generation |
+| **Game Studio** | 2D/3D game blueprints, validation/import/export, revisions, visual layout, saved 3D scenes and browser prototype playtesting | Expand character assets, gameplay systems and complete playable builds |
 
-Start the application:
+These capabilities are at different levels of maturity. A saved blueprint, script or generation request is **not** a finished generated song, video, application or game.
 
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Start-IndaVerse.ps1
+## Current development stage
 
-The launcher starts database services, applies migrations and opens missing
-API and web processes. Keep their terminals open.
+| Area | Status | Evidence in this repository |
+| --- | --- | --- |
+| Full-stack foundations | **Implemented for local development** | Next.js/React frontend, FastAPI routes, PostgreSQL models, Alembic migrations |
+| Accounts and private projects | **Development MVP** | Auth and project API modules; dashboard and studio navigation |
+| Creative planning and revisions | **Development MVP** | Creative briefs, project plans, revisions, scenes and project models |
+| Game-blueprint workflow | **Prototype implemented** | Blueprint import, validation, revisions, scene tools and browser prototype |
+| Automated checks | **Test suites present** | API regression tests under `apps/api/tests/`; frontend build command |
+| Generative AI providers | **Not integrated** | Unavailable music-provider fallback; generation requests do not create media |
+| Production deployment | **Not established** | Local setup and release review remain necessary |
+| Real-world creator validation | **Not established** | Pilot usage, usability evidence and scalability testing remain future work |
 
-- Dashboard: http://localhost:3000/dashboard
-- API documentation: http://localhost:8002/docs
-- Health: http://localhost:8002/api/v1/health
+**Maturity statement:** IndaVerse is a working **local development MVP with experimental studio features**. The codebase should not be presented as a publicly available AI media generator, finished game engine or production SaaS platform.
 
-Use localhost consistently in the browser. Port 8002 avoids another local
-application on port 8000. Any existing server on port 3000 must be IndaVerse.
+## Architecture at a glance
 
-## Verification
+```text
+Creator / browser
+      |
+      v
+Next.js 16 + React + TypeScript web application
+      |
+      v
+FastAPI / Pydantic REST endpoints
+      |
+      +---- Accounts, projects and studio workflows
+      +---- Creative briefs, revisions and planning
+      +---- Game scenes and blueprint validation
+      +---- Provider abstraction (generative services not connected)
+      |
+      v
+PostgreSQL + SQLAlchemy + Alembic migrations
+      |
+      +---- Redis in local service configuration
+```
 
-Web production build:
+**Current stack:** Next.js 16, React 19, TypeScript, Three.js, Python, FastAPI, Pydantic, SQLAlchemy, PostgreSQL, Alembic and Redis.
 
-    npm.cmd --prefix apps/web run build
+The repository separates the frontend (`apps/web`) from the API (`apps/api`) so interfaces, studio models and generation-provider integrations can evolve independently.
 
-API regression tests use isolated database fixtures. Configure test-only
-DATABASE_URL, REDIS_URL and SECRET_KEY before running pytest from apps/api.
-Do not run tests against a production database.
+## Why IndaVerse matters
 
-SQLite tests do not verify PostgreSQL row-lock concurrency. Browser
-playtests are also necessary for rendering and interaction.
+- **For creators:** one organized place for concepts, drafts, characters, revisions and creative assets.
+- **For developers:** a practical full-stack platform exploring multimodal workflows, stateful products and interactive scene editing.
+- **For collaborators:** visible architecture, explicit capability boundaries and a roadmap that separates implemented features from ambition.
+- **For emerging African digital creators:** a long-term vision of more accessible creative tools built with regional relevance in mind.
 
-## Demo
+## Demo and engineering evidence
 
-See [the demo walkthrough](docs/DEMO.md).
+The [demo walkthrough](docs/DEMO.md) shows how to prepare and demonstrate the existing Game Studio blueprint workflow, including the **Legends of Zamara** example, validation preview, saved revisions and a separately prepared browser scene prototype.
 
-## Limitations
+It does **not** claim that the blueprint creates characters, animations, quests or a complete world automatically.
 
-This is a development MVP. AI music and image generation providers are
-not connected. Recording a generation request does not generate an asset.
+- [Game blueprint example](examples/game-blueprints/zamara-demo.json)
+- [API regression tests](apps/api/tests)
+- [Frontend application](apps/web)
+- [Backend service](apps/api)
+- [Demo walkthrough and limits](docs/DEMO.md)
 
-Game blueprints describe intended gameplay. Importing one does not generate
-models, animations, levels or gameplay systems. The browser player is a
-prototype, not a complete game engine.
+## Run locally on Windows
 
-Blueprint exports exclude image files, playable layouts and revision
-history. Source code and blueprint exports are not full database backups.
+**Prerequisites:** Python 3.13, compatible Node.js and Docker Desktop with Linux containers enabled.
 
-Production deployment, media access controls and dependency security
-require a release review.
+From the repository root in PowerShell:
+
+```powershell
+python -m venv apps/api/.venv
+& "apps/api/.venv/Scripts/python.exe" -m pip install -r apps/api/requirements.txt
+npm.cmd --prefix apps/web ci
+```
+
+For a first installation, copy `.env.example` to `.env` and `apps/web/.env.local.example` to `apps/web/.env.local`. Set matching strong database passwords and a separate random secret. Keep real credentials out of Git. An existing PostgreSQL volume retains its previously configured password.
+
+Start the local services:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Start-IndaVerse.ps1
+```
+
+| Local service | URL |
+| --- | --- |
+| Creator dashboard | http://localhost:3000/dashboard |
+| API documentation | http://localhost:8002/docs |
+| API health | http://localhost:8002/api/v1/health |
+
+Use `localhost` consistently and ensure the local ports are not already occupied by another app.
+
+### Check your installation
+
+```powershell
+npm.cmd --prefix apps/web run build
+```
+
+API tests use isolated test database settings. Configure a **test-only** `DATABASE_URL`, `REDIS_URL` and `SECRET_KEY` before running pytest from `apps/api`. Do not run tests against a production or valuable development database.
+
+The existence of tests does not, by itself, mean they passed on your machine. SQLite fixture tests do not establish PostgreSQL concurrency guarantees; manual browser playtesting is still required.
 
 ## Roadmap
 
-- Connected AI generation providers.
-- Richer gameplay and character assets.
-- Expanded scene editing.
-- Complete project packaging and playable build export.
-- Production deployment and operational hardening.
+**Near term:** Improve studio usability, strengthen tests, add export and backup coverage, refine 3D scene editing, and document repeatable local demos.
 
-These are planned capabilities.
+**Medium term:** Integrate generation providers behind clear contracts, connect asset outputs to projects, and add monitoring, security and controlled user pilots.
+
+**Long term:** Explore richer multimodal creative assistance, more complete game systems, portable project packages and production deployment after appropriate validation.
+
+These are **planned milestones**, not completed capabilities or delivery promises.
+
+## Important limitations
+
+- AI music and image-generation providers are **not connected** in the current local codebase.
+- A generation request may be recorded without a generated asset.
+- Imported game blueprints do not automatically produce 3D models, animations, complete levels or quests.
+- The browser player is an interactive **prototype**, not a finished game engine.
+- Blueprint exports omit important material such as image files, playable layouts and revision history; they are not backups.
+- Production deployment, media authorization, security review and end-user validation remain outstanding.
+
+## About the team
+
+**IndaVerse** is developed under **Yaqini & Duniya Technology (YD Tech)**, an emerging Nigerian technology venture working on practical AI, interactive software and digital products.
+
+**Project lead:** [Inda Obanyi](https://github.com/Inda-Obanyi) — Founder, Software Developer & AI/ML Engineer.
+
+[Founder portfolio](https://indaobanyi.vercel.app) · [LinkedIn](https://www.linkedin.com/in/inda-obanyi-8886553a6/) · [YD Technology GitHub](https://github.com/Yaqini-Duniya-Technology)
+
+---
+
+<div align="center">
+
+**IndaVerse — Create with structure. Build with imagination.**
+
+*Built in Africa. Designed for creative possibility. Developed responsibly, one milestone at a time.*
+
+</div>
