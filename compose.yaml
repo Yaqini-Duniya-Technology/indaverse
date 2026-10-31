@@ -1,0 +1,24 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: indaverse
+      POSTGRES_PASSWORD: ${INDAVERSE_DB_PASSWORD:?Database password required}
+      POSTGRES_DB: indaverse
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - indaverse_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U indaverse -d indaverse"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7
+    ports:
+      - "127.0.0.1:6379:6379"
+
+volumes:
+  indaverse_postgres_data:

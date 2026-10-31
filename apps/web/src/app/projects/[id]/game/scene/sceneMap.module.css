@@ -1,0 +1,11 @@
+.panel { margin:24px 0; padding:22px; border:1px solid #454052; border-radius:14px; background:#121821; }
+.toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:14px; margin:18px 0; }
+.toolbar label { display:flex; flex-direction:column; gap:8px; font-size:14px; max-width:100%; }
+.toolbar select { max-width:100%; padding:11px; border:1px solid #82709e; border-radius:8px; color:#eeeef5; background:#191522; }
+.toolbar .check { flex-direction:row; align-items:center; padding:12px 0; }
+.check input { width:18px; height:18px; }
+.map { display:block; width:100%; max-width:760px; aspect-ratio:1; border:1px solid #82709e; border-radius:12px; touch-action:none; user-select:none; }
+.map:focus-visible,.toolbar select:focus-visible { outline:3px solid #c4b5fd; outline-offset:4px; }
+.object { cursor:grab; }
+.object:focus { outline:none; stroke:#fff; stroke-width:.6; }
+.legend { font-size:13px; }

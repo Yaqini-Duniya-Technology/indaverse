@@ -1,0 +1,35 @@
+
+node_modules/
+.next/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+.env.*
+!.env.example
+!.env.*.example
+uploads/
+*.before-repair
+
+# Local restoration leftovers and generated files
+/indaverse/
+/apps/api/v1/
+/apps/api/app.models.music_generation_job
+/apps/api/from
+/apps/api/import
+/apps/api/MusicGenerationJob
+/apps/api/python -c
+/apps/web/src/app/dashboard/Biology.txt
+*.tsbuildinfo
+*.log
+*.db
+*.sqlite
+*.sqlite3
+/src/
+
+# Duplicate restoration paths
+/apps/web/.src/
+/apps/web/apps/
+/apps/web/web/
+/apps/web/lib/

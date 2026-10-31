@@ -1,0 +1,113 @@
+{
+  "title": "LEGENDS OF ZAMARA - The Lost Kingdom",
+  "dimension": "3d",
+  "genre": "Adventure / Exploration / Puzzle",
+  "concept": "Kairo returns to Zamara, a fictional West African-inspired kingdom whose river and ancient beacon have fallen silent. With guidance from villagers, he explores the village, river crossing and ruined sanctuary to recover three beacon fragments. The intended experience celebrates curiosity, cooperation and restoring a community.",
+  "core_loop": "Explore, speak with a guide, discover a clue, collect a beacon fragment and unlock the next location. The initial browser test should focus on movement, platform collisions, collectibles and reaching an exit. Dialogue, quests and progression are design requirements for later development.",
+  "controls": "Use the controls displayed by the current browser prototype. Target controls: WASD or arrow keys to move, Space to jump, E to interact and Escape to pause. Interaction and pause controls require implementation and verification before being advertised as playable.",
+  "characters": [
+    {
+      "id": "zamara-kairo",
+      "name": "Kairo",
+      "role": "player",
+      "image_id": null,
+      "description": "A resourceful young explorer with a teal tunic, brown boots and a small travel bag. Target abilities: movement, jumping, collecting fragments and interacting with villagers."
+    },
+    {
+      "id": "zamara-amara",
+      "name": "Amara",
+      "role": "ally",
+      "image_id": null,
+      "description": "A village apprentice and mapmaker in a gold scarf. Offers clues about the river crossing and ancient symbols."
+    },
+    {
+      "id": "zamara-elder",
+      "name": "Elder Daro",
+      "role": "npc",
+      "image_id": null,
+      "description": "The village historian. Introduces the beacon mystery and explains the meaning of the recovered fragments."
+    }
+  ],
+  "levels": [
+    {
+      "id": "zamara-village",
+      "title": "The Silent Village",
+      "setting": "A warm village square with earth-toned homes, shade trees, market stalls and a dry fountain.",
+      "objective": "Design goal: meet Elder Daro, find the first fragment and reach the village gate. Initial prototype: collect test objects and reach the marked exit.",
+      "challenges": "Low platforms and clear navigation landmarks. No enemies in the first playable milestone.",
+      "image_id": null
+    },
+    {
+      "id": "zamara-river",
+      "title": "The Broken Crossing",
+      "setting": "A riverbank with stone platforms, wooden walkways and a damaged bridge.",
+      "objective": "Design goal: follow Amara's clues, recover the second fragment and restore a route across the river.",
+      "challenges": "Careful jumps and a simple route puzzle. Falling should return the player to a checkpoint once checkpoints are implemented.",
+      "image_id": null
+    },
+    {
+      "id": "zamara-sanctuary",
+      "title": "The Beacon Sanctuary",
+      "setting": "An overgrown stone sanctuary on a hillside, with carved symbols and an inactive beacon.",
+      "objective": "Design goal: recover the final fragment, solve a symbol-order puzzle and restore the beacon.",
+      "challenges": "Readable environmental clues and a repeatable puzzle with no permanent failure state.",
+      "image_id": null
+    }
+  ],
+  "assets": [
+    {
+      "id": "zamara-player-model",
+      "title": "Kairo character model",
+      "kind": "model",
+      "description": "Original low-poly GLB character. Consistent scale, clean silhouette and teal clothing. Not included in this template."
+    },
+    {
+      "id": "zamara-village-environment",
+      "title": "Village environment kit",
+      "kind": "environment",
+      "description": "Modular houses, market stalls, trees, riverbanks and sanctuary pieces inspired by a fictional West African setting."
+    },
+    {
+      "id": "zamara-surface-textures",
+      "title": "Environment textures",
+      "kind": "texture",
+      "description": "Original earth, stone, wood and cloth textures."
+    },
+    {
+      "id": "zamara-materials",
+      "title": "Shared scene materials",
+      "kind": "material",
+      "description": "Reusable earth, foliage, water and beacon materials."
+    },
+    {
+      "id": "zamara-movement-animation",
+      "title": "Character movement animations",
+      "kind": "animation",
+      "description": "Idle, walk, run and jump animations compatible with Kairo's rig."
+    },
+    {
+      "id": "zamara-beacon-effect",
+      "title": "Beacon restoration effect",
+      "kind": "vfx",
+      "description": "A restrained golden light effect for the restored beacon."
+    },
+    {
+      "id": "zamara-sound",
+      "title": "Music and sound effects",
+      "kind": "audio",
+      "description": "Original or licensed instrumental music, footsteps, collection sounds and river ambience. Provide mute controls."
+    },
+    {
+      "id": "zamara-hud",
+      "title": "Prototype interface",
+      "kind": "ui",
+      "description": "Readable controls, collectible count, objective and completion notice."
+    },
+    {
+      "id": "zamara-fragment-prefab",
+      "title": "Beacon fragment object",
+      "kind": "prefab",
+      "description": "Reusable collectible with a visible marker and collection feedback."
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 48px 24px;
+  background:
+    radial-gradient(ellipse at 15% 20%, #55316b33, transparent 50%),
+    radial-gradient(ellipse at 85% 80%, #44357533, transparent 50%),
+    #0b0b12;
+  color: #f4f3fa;
+  font-family: var(--font-geist-sans), sans-serif;
+}
+.page * { box-sizing: border-box; }
+.page > div { max-width: 460px; width: 100%; }
+.page h1 { color: #d5c3ff; font-size: 38px; letter-spacing: -1.5px; }
+.page h2 { font-size: 26px; letter-spacing: -.6px; }
+.page > div > div:last-child {
+  background: linear-gradient(145deg, #1d1628, #13131e);
+  border: 1px solid #4c365f;
+  border-radius: 20px;
+  box-shadow: 0 24px 80px #00000055;
+  padding: 32px;
+}
+.page input {
+  background: #0e0d16;
+  border-color: #493853;
+  color: #f4f3fa;
+  min-height: 48px;
+  font: inherit;
+  font-size: 16px;
+}
+.page input::placeholder { color: #9c90ac; }
+.page input:focus { border-color: #c2aaff; }
+.page :is(input, button, a):focus-visible {
+  outline: 2px solid #c2aaff;
+  outline-offset: 4px;
+}
+.page button[type="submit"] {
+  background: #bda4ff;
+  color: #211633;
+  min-height: 48px;
+  font-weight: 650;
+}
+.page button[type="submit"]:hover { background: #cfbdff; }
+.page button:disabled { cursor: wait; }
+.page :global(.text-zinc-400) { color: #b6acc5; }
+.page a { color: #d0baff; }
+.page [role="alert"] { overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .page { padding: 32px 18px; }
+  .page > div > div:last-child { padding: 24px; }
+}

@@ -1,0 +1,33 @@
+.map {
+  display: block;
+  width: 100%;
+  background: #142638;
+  border: 1px solid #536477;
+  border-radius: 12px;
+}
+.object {
+  cursor: grab;
+  touch-action: none;
+}
+.object:active {
+  cursor: grabbing;
+}
+.object:focus {
+  outline: none;
+}
+.object:focus-visible > *,
+.object[data-selected="true"] > * {
+  stroke: white;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+.object[aria-disabled="true"] {
+  cursor: default;
+}
+.help {
+  color: #c6c6d6;
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 12px 0;
+  min-height: 24px;
+}

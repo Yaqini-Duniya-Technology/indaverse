@@ -1,0 +1,4 @@
+.panel { margin:24px 0; padding:22px; border:1px solid #454052; border-radius:14px; background:#121821; }
+.toolbar { display:flex; flex-wrap:wrap; gap:12px; margin:18px 0; }
+.canvas { display:block; width:100%; max-width:900px; height:auto; aspect-ratio:16/9; border:1px solid #82709e; border-radius:12px; touch-action:none; }
+.canvas:focus-visible { outline:3px solid #c4b5fd; outline-offset:4px; }
