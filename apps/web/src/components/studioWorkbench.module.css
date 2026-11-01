@@ -1,0 +1,23 @@
+.panel { margin: 24px 0; padding: clamp(18px,3vw,28px); background: linear-gradient(140deg,#1e1830,#12121e); border: 1px solid #514164; border-radius: 20px; color: #f5efff; }
+.navigation,.actions { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+.navigation { font-size:13px; color:#d1bcff; margin-bottom:20px; }
+.navigation a:hover { text-decoration:underline; }
+.heading { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.heading h2 { font-size:25px; margin:5px 0 18px; font-weight:650; }
+.heading span,.hint { font-size:12px; line-height:1.7; color:#c2b6d2; }
+.eyebrow { font-size:10px; letter-spacing:2px; color:#c6adf8; }
+.metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+.metrics div { padding:15px; background:#ffffff06; border:1px solid #ffffff16; border-radius:12px; }
+.metrics dt { font-size:12px; color:#c2b6d2; }.metrics dd { font-size:18px; margin:7px 0 0; }
+.details { margin:18px 0; border-top:1px solid #ffffff20; padding-top:16px; }
+.details summary { cursor:pointer; font-weight:600; }.details p,.details li { font-size:14px; line-height:1.7; margin-top:10px; }
+.details ul { list-style:disc; padding-left:22px; }.details label { display:block; margin-top:16px; }
+.details input { padding:12px; margin-top:8px; background:#0c0c16; border:1px solid #615376; border-radius:8px; width:100%; }
+.entries { max-height:340px; overflow:auto; }.entries article { padding:16px 0; border-bottom:1px solid #ffffff18; }.entries p { white-space:pre-wrap; overflow-wrap:anywhere; }.entries small { color:#bdb0cb; }
+.actions button { padding:11px 15px; border:1px solid #77618f; border-radius:9px; background:#282035; cursor:pointer; font-size:13px; }.actions button:hover { background:#3a2c4d; }
+.panel :is(button,a,input,summary):focus-visible { outline:2px solid #d2b8ff; outline-offset:4px; }.hint { margin-top:14px; }
+.details select { padding: 12px; margin-top: 8px; background: #0c0c16; color: #f5efff; border: 1px solid #615376; border-radius: 8px; width: 100%; }
+.details input[type="checkbox"] { width: auto; margin-right: 10px; }
+.details button { border: 1px solid #88749e; background: #282035; border-radius: 8px; padding: 10px 14px; margin: 12px 8px 6px 0; }
+.details h3,.details h4 { font-weight: 700; margin-top: 20px; }
+.panel select:focus-visible { outline: 2px solid #d2b8ff; outline-offset: 4px; }

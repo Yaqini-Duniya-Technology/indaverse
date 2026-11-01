@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import StudioWorkbench from "@/components/StudioWorkbench";
+import DraftExchange from "@/components/DraftExchange";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import ProjectImage from "@/components/ProjectImage";
@@ -239,6 +241,12 @@ function VideoEditor({ projectId }: { projectId: number }) {
         {error && <p role="alert" className="rounded-xl border border-red-900 bg-red-950/30 p-4 text-red-300">{error}</p>}
         {notice && <p role="status" className="text-violet-200">{notice}</p>}
 
+        <DraftExchange studio="video" projectId={projectId} data={data} version={version} dirty={dirty} disabled={saving}
+          onApply={next => {
+            if (lock.current || saving) return false;
+            setData(next); setNotice("Reviewed draft applied. Save manually when ready."); return true;
+          }} />
+        <StudioWorkbench kind="video" projectId={projectId} data={data} version={version} dirty={dirty} />
         <fieldset disabled={saving} className="space-y-8">
           <legend className="sr-only">Video script and shots</legend>
           <section className="rounded-2xl border border-zinc-800 bg-black p-6">

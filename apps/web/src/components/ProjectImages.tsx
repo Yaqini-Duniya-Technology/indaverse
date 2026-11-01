@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import ProjectImage from "./ProjectImage";
+import ImageDraftPreview from "./ImageDraftPreview";
+import ImageDownload from "./ImageDownload";
 import ImageGenerationRequests from "./ImageGenerationRequests";
 import { getProject, type Project } from "@/lib/projects";
 import {
@@ -22,6 +24,10 @@ export default function ProjectImages({
   const [project, setProject] = useState<Project | null>(null);
   const [page, setPage] = useState<ImagePage | null>(null);
   const [offset, setOffset] = useState(0);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState<ImageCategory | "">("");
+  const [sort, setSort] = useState<"newest" | "oldest" | "label">("newest");
   const [retry, setRetry] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -38,14 +44,14 @@ export default function ProjectImages({
     setLoading(true);
     setPage(null);
     setError("");
-    void Promise.all([getProject(projectId), listImages(projectId, offset)])
+    void Promise.all([getProject(projectId), listImages(projectId, offset, { search, category: filterCategory, sort })])
       .then(([current, images]) => {
         if (active) { setProject(current); setPage(images); }
       }).catch((err: unknown) => {
         if (active) setError(err instanceof Error ? err.message : "Unable to load images.");
       }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [projectId, offset, retry]);
+  }, [projectId, offset, retry, search, filterCategory, sort]);
 
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -137,6 +143,7 @@ export default function ProjectImages({
                 onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
             </div>
           </div>
+          <ImageDraftPreview file={file} />
           <p className="mt-3 text-xs text-zinc-500">Maximum 10 MB and 16 megapixels. Still images only.</p>
           <button className={`${button} mt-4`} disabled={!file || !label.trim()}>
             {busy ? "Please wait..." : "Upload image"}
@@ -151,6 +158,17 @@ export default function ProjectImages({
             onClick={() => void cover(null)}>Remove cover</button>
         )}
       </div>
+      <form className="my-5 flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); setOffset(0); setSearch(searchInput.trim()); }}>
+        <label htmlFor={`${id}-search`}>Search all project images<input id={`${id}-search`} type="search" maxLength={150} className={input} value={searchInput} onChange={event => setSearchInput(event.target.value)} /></label>
+        <label htmlFor={`${id}-filter`}>Filter category<select id={`${id}-filter`} className={input} value={filterCategory} onChange={event => { setOffset(0); setFilterCategory(event.target.value as ImageCategory | ""); }}>
+          <option value="">All categories</option>{["character", "scene", "location", "reference"].map(value => <option key={value} value={value}>{value}</option>)}
+        </select></label>
+        <label htmlFor={`${id}-sort`}>Sort<select id={`${id}-sort`} className={input} value={sort} onChange={event => { setOffset(0); setSort(event.target.value as typeof sort); }}>
+          <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="label">Label A–Z</option>
+        </select></label>
+        <button type="submit" className={button} disabled={busy}>Search images</button>
+        <button type="button" className={button} onClick={() => { setOffset(0); setSearch(""); setSearchInput(""); setFilterCategory(""); }}>Clear search</button>
+      </form>
       {loading ? <p role="status">Loading image library...</p> : page && (
         <>
           {page.items.length === 0 && <p className="text-sm text-zinc-400">No images on this page yet.</p>}
@@ -164,6 +182,7 @@ export default function ProjectImages({
                   <p className="my-2 text-xs capitalize text-zinc-400">
                     {asset.category} / {asset.width} x {asset.height}
                   </p>
+                  <ImageDownload projectId={projectId} imageId={asset.id} />
                   <button type="button" className={button}
                     disabled={busy || !project || project.cover_image_id === asset.id}
                     onClick={() => void cover(asset.id)}>

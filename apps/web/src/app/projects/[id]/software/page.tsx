@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import StudioWorkbench from "@/components/StudioWorkbench";
+import DraftExchange from "@/components/DraftExchange";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { ApiError } from "@/lib/api";
@@ -248,8 +250,14 @@ function SoftwareEditor({ projectId }: { projectId: number }) {
           <button className={styles.secondary} onClick={reload}>Retry loading</button>
         ) : (
           <>
+        <DraftExchange studio="software" projectId={projectId} data={data} version={version} dirty={dirty} disabled={saving}
+          onApply={next => {
+            if (lock.current || saving) return false;
+            setData(next); setNotice("Reviewed draft applied. Save manually when ready."); return true;
+          }} />
+            <StudioWorkbench kind="software" projectId={projectId} data={data} version={version} dirty={dirty} />
             <div className={styles.toolbar}>
-              <span>{version ? `Saved version ${version}` : "New blueprint"} ? {dirty ? "Unsaved changes" : "Draft up to date"}</span>
+              <span>{version ? `Saved version ${version}` : "New blueprint"} / {dirty ? "Unsaved changes" : "Draft up to date"}</span>
               <Link className={styles.secondary}
                 href={`/projects/${projectId}/software/preview`}>Preview saved blueprint</Link>
               <button className={styles.secondary} disabled={saving} onClick={exportDraft}>Export draft</button>

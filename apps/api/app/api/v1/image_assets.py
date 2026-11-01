@@ -122,14 +122,23 @@ def list_images(
     project_id: int,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    search: str = Query(default="", max_length=150),
+    category: Literal["character", "scene", "location", "reference"] | None = Query(default=None),
+    sort: Literal["newest", "oldest", "label"] = Query(default="newest"),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     owned(db, project_id, user.id)
-    rows = db.scalars(
-        select(ImageAsset).where(ImageAsset.project_id == project_id)
-        .order_by(ImageAsset.id.desc()).offset(offset).limit(limit + 1)
-    ).all()
+    query = select(ImageAsset).where(ImageAsset.project_id == project_id)
+    if search.strip():
+        query = query.where(ImageAsset.label.icontains(search.strip(), autoescape=True))
+    if category is not None:
+        query = query.where(ImageAsset.category == category)
+    if sort == "label":
+        query = query.order_by(ImageAsset.label.asc(), ImageAsset.id.asc())
+    else:
+        query = query.order_by(ImageAsset.id.asc() if sort == "oldest" else ImageAsset.id.desc())
+    rows = db.scalars(query.offset(offset).limit(limit + 1)).all()
     return {
         "items": [metadata(row) for row in rows[:limit]],
         "has_more": len(rows) > limit, "limit": limit, "offset": offset,

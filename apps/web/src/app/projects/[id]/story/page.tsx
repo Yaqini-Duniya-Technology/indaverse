@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import StudioWorkbench from "@/components/StudioWorkbench";
+import DraftExchange from "@/components/DraftExchange";
 import ProjectImages from "@/components/ProjectImages";
 import StoryCharactersEditor from "@/components/StoryCharactersEditor";
 import StoryScenesEditor from "@/components/StoryScenesEditor";
@@ -188,6 +190,13 @@ function StoryEditor({ projectId }: { projectId: number }) {
           <h1 className="mt-3 text-4xl font-semibold">A place for your next story.</h1>
           <p className="mt-3 text-zinc-400">Build your chapters, find your voice, and keep your draft together.</p>
         </header>
+        {draft && !loading && <DraftExchange studio="story" projectId={projectId} data={draft} version={version} dirty={dirty} disabled={busy || characterState.busy || sceneState.busy}
+          onApply={next => {
+            if (lock.current || busy || characterState.busy || sceneState.busy) return false;
+            setDraft(next); setSelected(next.chapters[0]?.id ?? "");
+            setNotice("Reviewed draft applied. Save manually when ready."); return true;
+          }} />}
+        {draft && !loading && <StudioWorkbench kind="story" projectId={projectId} data={draft} version={version} dirty={dirty} />}
         {draft && !loading && <ProjectImages key={`story-images:${projectId}`} projectId={projectId} />}
         {draft && !loading && <StoryCharactersEditor key={`story-characters:${projectId}`} projectId={projectId} onStateChanged={setCharacterState} />}
         {draft && !loading && <StoryScenesEditor key={`story-scenes:${projectId}`} projectId={projectId} onStateChanged={setSceneState} />}

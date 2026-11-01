@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test tests/*.test.mjs",
+    "build:e2e": "node scripts/e2e-web.mjs build",
+    "start:e2e": "node scripts/e2e-web.mjs start",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "next": "16.3.4",
@@ -15,6 +19,7 @@
     "three": "0.186.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

@@ -16,10 +16,16 @@ export interface ImagePage {
   has_more: boolean;
 }
 export const IMAGE_API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002";
 
-export function listImages(projectId: number, offset = 0) {
-  return apiFetch<ImagePage>(`/api/v1/projects/${projectId}/images?limit=20&offset=${offset}`);
+export function listImages(projectId: number, offset = 0, options: {
+  search?: string; category?: ImageCategory | ""; sort?: "newest" | "oldest" | "label";
+} = {}) {
+  const query = new URLSearchParams({ limit: "20", offset: String(offset) });
+  if (options.search) query.set("search", options.search);
+  if (options.category) query.set("category", options.category);
+  if (options.sort) query.set("sort", options.sort);
+  return apiFetch<ImagePage>(`/api/v1/projects/${projectId}/images?${query}`);
 }
 export function setProjectCover(projectId: number, version: number, imageId: number | null) {
   return apiFetch<Project>(`/api/v1/projects/${projectId}/cover`, {

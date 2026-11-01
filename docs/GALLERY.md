@@ -31,3 +31,9 @@
 When captured, put media under `docs/media/`, replace these slots with images and include the tested commit and date. Avoid passwords, tokens or private project data.
 
 **Local URLs after setup:** dashboard at `http://localhost:3000/dashboard`, API docs at `http://localhost:8002/docs`. These are local development endpoints, not public demos.
+
+## Verified synthetic courtyard
+
+![Zamara browser prototype after collecting three gems and reaching its exit](gallery/zamara-courtyard.png)
+
+Captured from an isolated browser fixture, not a production user account. See [the demo walkthrough](DEMO.md) and [verification limits](RELIABLE-DEMO-MILESTONE.md).

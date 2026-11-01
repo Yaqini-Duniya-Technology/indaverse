@@ -1,4 +1,4 @@
-import { apiFetch } from "./api";
+import { ApiError, apiFetch } from "./api";
 
 export interface Chapter {
   id: string;
@@ -19,14 +19,12 @@ export interface SavedStory extends StoryDraft {
 }
 
 export async function getStory(projectId: number): Promise<SavedStory | null> {
-  const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-  const response = await fetch(`${base}/api/v1/projects/${projectId}/story`, {
-    credentials: "include",
-  });
-  const data = await response.json();
-  if (response.status === 404 && data.detail === "No story draft saved yet.") return null;
-  if (!response.ok) throw new Error(data.detail || "Unable to load story.");
-  return data as SavedStory;
+  try {
+    return await apiFetch<SavedStory>(`/api/v1/projects/${projectId}/story`);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404 && error.message === "No story draft saved yet.") return null;
+    throw error;
+  }
 }
 
 export function saveStory(projectId: number, version: number, draft: StoryDraft) {
