@@ -1,4 +1,5 @@
 "use client";
+import StudioWorkbench from "@/components/StudioWorkbench";
 
 import GenerationHistory from "./GenerationHistory";
 
@@ -159,12 +160,8 @@ export default function MusicStudioPage() {
      BUILD AUDIO URL
      ======================================================= */
 
-  function buildAudioUrl(
-    storedFilename: string,
-  ): string {
-    return `${API_URL}/uploads/audio/${encodeURIComponent(
-      storedFilename,
-    )}`;
+  function buildAudioUrl(audioId: number): string {
+    return `${API_URL}/api/v1/projects/${projectId}/audio/${audioId}/content`;
   }
 
   /* =======================================================
@@ -1072,6 +1069,7 @@ export default function MusicStudioPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
+
       {/* ===================================================
           HEADER
       =================================================== */}
@@ -1137,6 +1135,13 @@ export default function MusicStudioPage() {
           )}
         </div>
       </section>
+      <div className="mx-auto max-w-5xl px-6">
+        <StudioWorkbench kind="music" projectId={projectId} version={0}
+          savedLabel={musicProject ? `Saved song loaded / ${new Date(musicProject.updated_at).toLocaleString()}` : "No saved song yet"}
+          data={{ title, artist, genre, mood, bpm, lyrics_intro: lyricsIntro,
+            lyrics_verse_1: lyricsVerse1, lyrics_chorus: lyricsChorus,
+            lyrics_verse_2: lyricsVerse2, lyrics_bridge: lyricsBridge, lyrics_outro: lyricsOutro }} />
+      </div>
 
       {/* ===================================================
           CONTENT
@@ -1664,7 +1669,7 @@ export default function MusicStudioPage() {
                     (audio, index) => {
                       const audioUrl =
                         buildAudioUrl(
-                          audio.stored_filename,
+                          audio.id,
                         );
 
                       const isDeleting =
@@ -1718,6 +1723,7 @@ export default function MusicStudioPage() {
                           </div>
 
                           <audio
+                            crossOrigin="use-credentials"
                             controls
                             preload="metadata"
                             src={audioUrl}

@@ -32,7 +32,7 @@ def get_user_projects(
     statement = (
         select(Project)
         .where(Project.user_id == user_id)
-        .order_by(Project.created_at.desc())
+        .order_by(Project.created_at.desc(), Project.id.desc())
     )
 
     return list(db.scalars(statement).all())

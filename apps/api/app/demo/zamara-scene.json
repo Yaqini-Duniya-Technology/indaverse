@@ -1,0 +1,10 @@
+{
+  "spawn": {"x": -6.0, "y": 0.0, "z": 0.0},
+  "exit": {"x": 6.0, "y": 0.0, "z": 0.0},
+  "platforms": [{"id": "village-courtyard", "x": 0.0, "z": 0.0, "w": 20.0, "d": 12.0, "top": 0.0}],
+  "collectibles": [
+    {"id": "beacon-one", "x": -3.0, "y": 0.7, "z": 0.0},
+    {"id": "beacon-two", "x": 0.0, "y": 0.7, "z": 0.0},
+    {"id": "beacon-three", "x": 3.0, "y": 0.7, "z": 0.0}
+  ]
+}

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.v1.dependencies import get_current_user
+from app.core.config import settings
 from app.core.security import create_access_token, verify_password
 from app.database.connection import get_db
 from app.models.user import User
@@ -102,9 +103,9 @@ def login(
         key=COOKIE_NAME,
         value=access_token,
         httponly=True,
-        secure=False,
+        secure=settings.cookie_secure,
         samesite="lax",
-        max_age=60 * 60,
+        max_age=settings.access_token_expire_minutes * 60,
         path="/",
     )
 
@@ -132,6 +133,9 @@ def logout(
     response.delete_cookie(
         key=COOKIE_NAME,
         path="/",
+        secure=settings.cookie_secure,
+        httponly=True,
+        samesite="lax",
     )
 
     return {

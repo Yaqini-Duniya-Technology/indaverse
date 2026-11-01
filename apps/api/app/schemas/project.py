@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 ALLOWED_PROJECT_TYPES = {
@@ -22,9 +22,21 @@ ALLOWED_VISIBILITIES = {
 
 
 class ProjectCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def clean_name(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def clean_description(cls, value):
+        return (value.strip() or None) if isinstance(value, str) else value
+
     name: str = Field(min_length=1, max_length=150)
     project_type: str
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=5000)
     visibility: str = "private"
 
 

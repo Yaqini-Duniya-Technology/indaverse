@@ -1,0 +1,16 @@
+.page { max-width: 1180px; margin: auto; padding: 36px 24px 100px; color: #ecf1fc; }
+.page nav { display: flex; gap: 24px; flex-wrap: wrap; }
+.page a { color: #bcd4ff; text-decoration: underline; text-underline-offset: 4px; }
+.page h1 { font-size: clamp(2.3rem, 5vw, 4rem); font-weight: 800; letter-spacing: -.04em; margin: 24px 0; }
+.page h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 14px; }
+.page p { line-height: 1.8; margin: 12px 0; }
+.layout { display: grid; grid-template-columns: 240px 1fr; gap: 40px; margin: 40px 0; }
+.layout aside button { display: block; width: 100%; text-align: left; padding: 14px; border-radius: 10px; margin: 8px 0; border: 1px solid #455574; }
+.layout button[aria-pressed="true"] { background: #33486c; color: white; border-color: #a5c7ff; }
+.page input { width: 100%; background: #121d30; border: 1px solid #7086a8; border-radius: 10px; padding: 14px; margin-top: 10px; }
+.guide { padding: 28px; background: #141e31; border: 1px solid #3b4b67; border-radius: 18px; margin: 24px 0; }
+.guide details { border-top: 1px solid #3b4b67; padding: 16px 0; }
+.guide summary { cursor: pointer; font-weight: 650; }
+.guide blockquote { margin: 14px 0; padding: 16px; border-left: 3px solid #b5d1ff; background: #21304a; }
+.page :focus-visible { outline: 3px solid #f4da9a; outline-offset: 4px; }
+@media (max-width: 720px) { .layout { grid-template-columns: 1fr; gap: 12px; } .layout aside { display: flex; flex-wrap: wrap; gap: 8px; } .layout aside h2 { width: 100%; } .layout aside button { width: auto; margin: 0; } .guide { padding: 18px; } }

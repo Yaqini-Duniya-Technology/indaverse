@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { GAME_GENRES } from "@/lib/production-tools.mjs";
+import StudioWorkbench from "@/components/StudioWorkbench";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { ApiError } from "@/lib/api";
@@ -211,12 +213,7 @@ function GameEditor({ projectId }: { projectId: number }) {
       data.levels.some((item) => !item.title.trim()) ||
       data.assets.some((item) => !item.title.trim());
 
-    if (incomplete) {
-      setAutosaveMessage("Autosave is waiting for required game, character, level, and asset names.");
-      return;
-    }
-
-    setAutosaveMessage("Changes pending. Autosave will run after 8 seconds without edits.");
+    if (incomplete) return;
     const timer = window.setTimeout(() => {
       if (document.hidden) {
         setAutosaveEnabled(false);
@@ -297,7 +294,7 @@ function GameEditor({ projectId }: { projectId: number }) {
           <Link href={`/projects/${projectId}`}>Back to project</Link>
         </nav>
         <header className={styles.hero}>
-          <p className={styles.eyebrow}>GAME STUDIO ? 2D &amp; 3D</p>
+          <p className={styles.eyebrow}>GAME STUDIO / 2D &amp; 3D</p>
           <h1>Build the idea behind your next world.</h1>
           <p>Define gameplay, characters, levels, and the assets your game needs.</p>
         </header>
@@ -305,8 +302,9 @@ function GameEditor({ projectId }: { projectId: number }) {
         {notice && <p className={styles.notice} role="status">{notice}</p>}
         {!ready ? <button className={styles.secondary} onClick={reload}>Retry loading</button> : (
           <>
+            <StudioWorkbench kind="game" projectId={projectId} data={data} version={version} dirty={dirty} />
             <div className={styles.toolbar}>
-              <span>{version ? `Saved version ${version}` : "New blueprint"} ? {dirty ? "Unsaved changes" : "Draft up to date"}</span>
+              <span>{version ? `Saved version ${version}` : "New blueprint"} / {dirty ? "Unsaved changes" : "Draft up to date"}</span>
               <Link className={styles.secondary}
                 href={`/projects/${projectId}/game/preview`}>Preview saved design</Link>
               {savedDimension && <Link className={styles.secondary}
@@ -340,7 +338,11 @@ function GameEditor({ projectId }: { projectId: number }) {
                 Enable server autosave for this visit
               </label>
               {version < 1 && <p>Save your first blueprint manually before enabling autosave.</p>}
-              <p role="status">{autosaveMessage}</p>
+              <p role="status">{autosaveEnabled && !autosaveBlocked && ready && !saving && dirty && version > 0
+                ? (!data.title.trim() || data.characters.some(item => !item.name.trim()) || data.levels.some(item => !item.title.trim()) || data.assets.some(item => !item.title.trim())
+                  ? "Autosave is waiting for required game, character, level, and asset names."
+                  : "Changes pending. Autosave will run after 8 seconds without edits.")
+                : autosaveMessage}</p>
               <p>When enabled, edits, imported drafts, and restored drafts can save
                 automatically. Each save checks the current version and records
                 changed blueprints in history. Errors turn autosave off.
@@ -364,12 +366,19 @@ function GameEditor({ projectId }: { projectId: number }) {
                 <label>Game title<input maxLength={150} value={data.title}
                   onChange={(event) => change({ title: event.target.value })} /></label>
                 <div className={styles.grid}>
-                  <label>Dimension<select value={data.dimension} onChange={(event) =>
+                  <label>Choose 2D or 3D<select value={data.dimension} onChange={(event) =>
                     change({ dimension: event.target.value as GameData["dimension"] })}>
                     <option value="2d">2D game</option><option value="3d">3D game</option>
                   </select></label>
-                  <label>Genre<input maxLength={100} value={data.genre} placeholder="Adventure, puzzle, racing..."
+                  <label>Genre (choose or write your own)<input list="game-genre-options" maxLength={100} value={data.genre} placeholder="Adventure, puzzle, racing..."
                     onChange={(event) => change({ genre: event.target.value })} /></label>
+                  <datalist id="game-genre-options">{GAME_GENRES.map(genre => <option key={genre} value={genre} />)}</datalist>
+                </div>
+                <div className={styles.panel}>
+                  <h3>{data.dimension === "3d" ? "3D world design" : "2D game design"}</h3>
+                  <p>{data.dimension === "3d" ? "Plan spatial worlds, character models and camera direction. The scene editor stores a separate playable prototype." : "Plan flat worlds, sprites and readable movement. The layout editor stores a separate playable prototype."}</p>
+                  <p>Choose any genre for your design. Current browser tests support prototype movement and collection; racing, combat, RPG progression and other genre mechanics need further implementation.</p>
+                  <p>Changing dimension keeps blueprint content. Save before opening the corresponding editor.</p>
                 </div>
                 <label>Game concept<textarea rows={4} maxLength={10000} value={data.concept}
                   onChange={(event) => change({ concept: event.target.value })} /></label>

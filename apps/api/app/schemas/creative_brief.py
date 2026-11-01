@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class CreativeBriefUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    expected_version: int = Field(ge=0)
+    expected_version: int = Field(ge=0, strict=True)
     goal: str = Field(max_length=5000)
     audience: str = Field(max_length=2000)
     style: str = Field(max_length=2000)

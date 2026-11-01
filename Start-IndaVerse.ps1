@@ -1,4 +1,5 @@
-﻿$ErrorActionPreference = "Stop"
+param([ValidateSet("development", "production")][string]$WebMode = "development")
+$ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
 $pythonExe = Join-Path $PSScriptRoot "apps/api/.venv/Scripts/python.exe"
@@ -78,7 +79,9 @@ $webListener = Get-NetTCPConnection `
     -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue
 
 if (-not $webListener) {
-    $webCommand = "& '$($npmExe.Replace("'", "''"))' --prefix apps/web run dev -- --port 3000"
+    $webScript = if ($WebMode -eq "production") { "start" } else { "dev" }
+    if ($WebMode -eq "production" -and -not (Test-Path "apps/web/.next/BUILD_ID")) { throw "Run Verify-Release.ps1 before production startup." }
+    $webCommand = "& '$($npmExe.Replace("'", "''"))' --prefix apps/web run $webScript -- --port 3000"
     $encoded = [Convert]::ToBase64String(
         [Text.Encoding]::Unicode.GetBytes($webCommand)
     )
@@ -87,16 +90,21 @@ if (-not $webListener) {
         -WorkingDirectory $PSScriptRoot `
         -ArgumentList @("-NoExit", "-EncodedCommand", $encoded)
 } else {
-    Write-Host "A web server already uses port 3000; leaving it running."
+    try {
+        $existing = Invoke-WebRequest -Uri "http://localhost:3000/login" -UseBasicParsing -TimeoutSec 10
+        if ($existing.Headers["X-IndaVerse-Web"] -ne "1") { throw "Port 3000 belongs to another web application. It was left running." }
+    } catch { throw "Port 3000 is occupied but the IndaVerse web identity could not be verified. Check its terminal. $($_.Exception.Message)" }
+    Write-Host "Existing IndaVerse web server detected."
 }
 
 $webReady = $false
-for ($attempt = 0; $attempt -lt 30; $attempt++) {
+for ($attempt = 0; $attempt -lt 60; $attempt++) {
+    if ($attempt % 10 -eq 0) { Write-Host "Waiting for web startup (attempt $($attempt + 1)/60)..." }
     try {
         $response = Invoke-WebRequest `
             -Uri "http://localhost:3000/login" `
             -UseBasicParsing -TimeoutSec 3
-        if ($response.StatusCode -eq 200) {
+        if ($response.StatusCode -eq 200 -and $response.Headers["X-IndaVerse-Web"] -eq "1") {
             $webReady = $true
             break
         }
@@ -108,5 +116,5 @@ if ($webReady) {
     Write-Host "`nOpen http://localhost:3000/dashboard" -ForegroundColor Green
     Write-Host "Keep the API and web terminals open."
 } else {
-    Write-Warning "Web server is still starting or needs attention. Check its terminal."
+    throw "Web startup was not verified. Check the new web terminal; no other processes were stopped."
 }

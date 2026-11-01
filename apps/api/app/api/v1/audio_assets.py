@@ -1,6 +1,8 @@
 from pathlib import Path
 from uuid import uuid4
 
+from fastapi.responses import FileResponse
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -25,7 +27,7 @@ router = APIRouter(
 )
 
 
-UPLOAD_DIR = Path("uploads/audio")
+UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads" / "audio"
 
 
 ALLOWED_AUDIO_TYPES = {
@@ -103,7 +105,7 @@ def get_project_audio(
             "project_id": asset.project_id,
             "original_filename": asset.original_filename,
             "stored_filename": asset.stored_filename,
-            "file_path": asset.file_path,
+            "file_path": f"/api/v1/projects/{project_id}/audio/{asset.id}/content",
             "mime_type": asset.mime_type,
             "file_size": asset.file_size,
             "created_at": asset.created_at,
@@ -160,61 +162,69 @@ async def upload_audio(
     )
 
     file_size = 0
-
     try:
-        with file_path.open("wb") as output_file:
-            while True:
-                chunk = await file.read(
-                    1024 * 1024
-                )
-
-                if not chunk:
-                    break
-
+        with file_path.open("xb") as output_file:
+            while chunk := await file.read(1024 * 1024):
                 file_size += len(chunk)
-
                 if file_size > MAX_FILE_SIZE:
-                    if file_path.exists():
-                        file_path.unlink()
-
-                    raise HTTPException(
-                        status_code=(
-                            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
-                        ),
-                        detail=(
-                            "Audio file is too large. "
-                            "Maximum size is 50 MB."
-                        ),
-                    )
-
+                    raise HTTPException(status_code=413, detail="Audio file is too large. Maximum size is 50 MB.")
                 output_file.write(chunk)
-
+        if file_size == 0:
+            raise HTTPException(status_code=400, detail="Audio file cannot be empty.")
+        audio_asset = AudioAsset(
+            project_id=project_id,
+            original_filename=original_filename[:255],
+            stored_filename=stored_filename,
+            file_path=str(file_path),
+            mime_type=file.content_type,
+            file_size=file_size,
+        )
+        db.add(audio_asset)
+        db.commit()
+    except Exception:
+        db.rollback()
+        file_path.unlink(missing_ok=True)
+        raise
     finally:
         await file.close()
-
-    audio_asset = AudioAsset(
-        project_id=project_id,
-        original_filename=original_filename,
-        stored_filename=stored_filename,
-        file_path=str(file_path),
-        mime_type=file.content_type,
-        file_size=file_size,
-    )
-
-    db.add(audio_asset)
-    db.commit()
     db.refresh(audio_asset)
-
     return {
-        "id": audio_asset.id,
-        "project_id": audio_asset.project_id,
+        "id": audio_asset.id, "project_id": audio_asset.project_id,
         "original_filename": audio_asset.original_filename,
         "stored_filename": audio_asset.stored_filename,
-        "file_path": audio_asset.file_path,
-        "mime_type": audio_asset.mime_type,
-        "file_size": audio_asset.file_size,
+        "file_path": f"/api/v1/projects/{project_id}/audio/{audio_asset.id}/content",
+        "mime_type": audio_asset.mime_type, "file_size": audio_asset.file_size,
         "created_at": audio_asset.created_at,
     }
+
+
+def stored_audio_path(asset: AudioAsset) -> Path:
+    # Resolve from the canonical storage root, never from a database path.
+    root = UPLOAD_DIR.resolve()
+    path = (root / asset.stored_filename).resolve()
+    if path.parent != root:
+        raise HTTPException(status_code=404, detail="Audio file not found.")
+    return path
+
+
+@router.get("/{audio_id}/content")
+def audio_content(
+    project_id: int, audio_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    get_owned_project(project_id, current_user, db)
+    asset = db.scalar(select(AudioAsset).where(
+        AudioAsset.id == audio_id, AudioAsset.project_id == project_id,
+    ))
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Audio asset not found.")
+    path = stored_audio_path(asset)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Audio file not found.")
+    return FileResponse(path, media_type=asset.mime_type, headers={
+        "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+    })
 
 
 # =========================================================
@@ -261,9 +271,7 @@ def delete_audio(
     # Delete physical file
     # -----------------------------------------------------
 
-    file_path = Path(
-        audio_asset.file_path
-    )
+    file_path = stored_audio_path(audio_asset)
 
     if file_path.exists():
         try:

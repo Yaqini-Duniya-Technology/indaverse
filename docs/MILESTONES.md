@@ -30,3 +30,7 @@
 5. Conduct documented usability testing before opening public production registration.
 
 Tracking rule: advance milestones only after reproducible evidence exists; a file, route or screenshot does not on its own prove production readiness.
+
+## Reliable demonstration milestone
+
+Workspace validation on 1 November 2026: 248 API tests, 23 web unit tests, production build and seven browser workflows passed. Added isolated build folders, a private demo-copy action and WebGL collection/exit regression coverage. Remote CI and Windows checks remain independently reported. See [milestone evidence](RELIABLE-DEMO-MILESTONE.md).

@@ -1,41 +1,28 @@
-# IndaVerse demo walkthrough
+# Legends of Zamara: three-minute demonstration
 
 ## Prepare
 
-1. Start IndaVerse using Start-IndaVerse.ps1.
-2. Sign in with your own demo account.
-3. Confirm the dashboard and Game Studio open.
-4. Prepare a saved 3D scene separately before demonstrating playback.
-5. Playtest the exact scene and controls before recording.
+Start IndaVerse, sign in with your own demo account, then choose **Create private Zamara demo** on the dashboard. Confirm creation. This creates a new private project; it never overwrites an existing one. Each confirmed creation is a separate copy.
 
-Do not include passwords or private information in a public recording.
+The copy includes a creative brief, version 1 of the game blueprint, its initial revision and version 1 of a 3D courtyard scene. It requires no external provider, paid call, media upload or database migration beyond existing game tables.
 
 ## Present
 
-1. Introduce the five creative studios.
-2. Create a private game project named Legends of Zamara.
-3. Open Game Studio and choose blueprint JSON.
-4. Import examples/game-blueprints/zamara-demo.json.
-5. Review the validation preview.
-6. Apply the draft and save the blueprint.
-7. Refresh to demonstrate persistence.
-8. Show characters, level designs and asset requirements.
-9. Open the saved design preview.
-10. Demonstrate a separately prepared scene in the browser prototype.
+1. **Direction (30 seconds):** open Project workspace and explain the creative goal, audience and prototype constraints.
+2. **Design (45 seconds):** open Game Studio. Show the explicit 3D choice, genre, three characters, three written level designs and nine asset requirements. These requirements are not implemented quests or asset files.
+3. **Persistence (20 seconds):** make a small title edit, save, then refresh to show the saved version and retained text.
+4. **Scene (30 seconds):** open the 3D scene editor. Show the single courtyard platform, supported spawn/exit and three gems. The scene is separate from the three-level written design.
+5. **Prototype (45 seconds):** open Play, press Start, collect the three gems along the courtyard's X axis, and reach the exit. Demonstrate Pause/Resume and Restart. Confirm the current on-screen controls before recording.
+6. **Guidance (10 seconds):** open Help Centre → Game Studio and expand Dimension and genre.
 
-## Capture evidence
+## Be precise about capabilities
 
-- Dashboard and project navigation.
-- Blueprint validation and saved content.
-- Visual scene editor.
-- Browser prototype running.
-- Actual API test and web build results.
+This is a planning workspace with browser prototype tools. The scene uses placeholder shapes; it does not include generated art, music, character animation, dialogue, combat, implemented quests or full game export. No AI provider is connected. Prototype tests do not establish that every blueprint requirement is playable.
 
-## Explain the scope
+Record only synthetic demo content. Hide passwords, tokens, private projects and operational terminals. Keep exports and database/media backups separately.
 
-The Zamara template contains three characters, three level designs and
-nine asset requirements. It does not include generated assets, a complete
-playable world or implemented quests.
+## Evidence
 
-Prototype playback demonstrates only the scene and interactions actually
-tested. AI generation and complete game export remain planned work.
+Automated browser checks cover login, private demo creation, saved draft persistence, stale-write rejection, Story recovery/import, Video and Web & App import/save, Music save/reload, and basic WebGL Start/Pause/Restart. The automated WebGL check collected all three gems, reached the exit, and verified Restart. Also playtest on the exact presentation device before recording.
+
+![Synthetic Zamara courtyard after the browser test reached its exit](gallery/zamara-courtyard.png)

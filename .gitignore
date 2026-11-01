@@ -33,3 +33,12 @@ uploads/
 /apps/web/apps/
 /apps/web/web/
 /apps/web/lib/
+
+# Private operational archives
+/backups/
+
+# Isolated Next.js outputs and browser evidence
+.next-dev/
+.next-e2e/
+playwright-report/
+test-results/

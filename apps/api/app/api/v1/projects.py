@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.v1.dependencies import get_current_user
@@ -65,6 +65,30 @@ def list_projects(
         db,
         current_user.id,
     )
+
+
+@router.get("/page")
+def project_page(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    search: str = Query(default="", max_length=150),
+    project_type: str | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if project_type is not None and project_type not in ALLOWED_PROJECT_TYPES:
+        raise HTTPException(status_code=422, detail="Invalid project type.")
+    query = select(Project).where(Project.user_id == current_user.id)
+    if project_type is not None:
+        query = query.where(Project.project_type == project_type)
+    if search.strip():
+        query = query.where(Project.name.icontains(search.strip(), autoescape=True))
+    rows = list(db.scalars(query.order_by(Project.created_at.desc(), Project.id.desc())
+        .offset(offset).limit(limit + 1)))
+    return {
+        "items": [ProjectResponse.model_validate(row) for row in rows[:limit]],
+        "has_more": len(rows) > limit, "limit": limit, "offset": offset,
+    }
 
 
 @router.get(

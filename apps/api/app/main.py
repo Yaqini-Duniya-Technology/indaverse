@@ -2,7 +2,9 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from app.core.config import settings
+from app.core.http_security import HttpSecurityMiddleware
 
 from app.api.v1.audio_assets import router as audio_assets_router
 from app.api.v1.auth import router as auth_router
@@ -23,10 +25,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -74,11 +73,9 @@ UPLOADS_DIR.mkdir(
     exist_ok=True,
 )
 
-app.mount(
-    "/uploads",
-    StaticFiles(directory=UPLOADS_DIR),
-    name="uploads",
-)
+# Uploaded media is served only by ownership-checked API routes.
+app.add_middleware(HttpSecurityMiddleware)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 
 # Restored studio route registration
 from importlib import import_module
@@ -114,3 +111,9 @@ for module_name in (
             f"Partially duplicated routes in {module_name}; inspect registration."
         )
     app.include_router(studio_router, prefix="/api/v1")
+
+from app.api.v1.studio_draft_imports import router as studio_draft_imports_router
+app.include_router(studio_draft_imports_router, prefix="/api/v1")
+
+from app.api.v1.demo_projects import router as demo_projects_router
+app.include_router(demo_projects_router, prefix="/api/v1")

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import DemoProject from "@/components/DemoProject";
+import StudioArtwork from "@/components/StudioArtwork";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api";
@@ -22,31 +24,31 @@ const projectTypes: { value: ProjectType; label: string }[] = [
 ];
 
 const studios: {
-  title: string; icon: string; type: ProjectType;
+  title: string; type: ProjectType;
   description: string; detail: string;
 }[] = [
   {
-    title: "Music Studio", icon: "?", type: "music",
+    title: "Music Studio", type: "music",
     description: "Write lyrics, shape your sound and organise audio.",
     detail: "Song history and generation request tracking. AI audio generation awaits a connected provider.",
   },
   {
-    title: "Video Studio", icon: "?", type: "video",
+    title: "Video Studio", type: "video",
     description: "Develop scripts, plan shots and preview your storyboard.",
     detail: "Saved drafts, image references and revision history.",
   },
   {
-    title: "Story Studio", icon: "?", type: "story",
+    title: "Story Studio", type: "story",
     description: "Build characters, scenes, chapters and your next novel.",
     detail: "Writing workspace, image references and a private reading preview.",
   },
   {
-    title: "Web & App Studio", icon: "?", type: "website",
+    title: "Web & App Studio", type: "website",
     description: "Plan pages, content sections and product features.",
     detail: "Saved software blueprints and design previews.",
   },
   {
-    title: "Game Studio", icon: "?", type: "game",
+    title: "Game Studio", type: "game",
     description: "Design characters, levels and worlds in 2D or 3D.",
     detail: "Blueprints, visual layout tools and browser prototype testing.",
   },
@@ -75,6 +77,7 @@ export default function DashboardPage() {
   const [retry, setRetry] = useState(0);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [sort, setSort] = useState("updated");
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -177,6 +180,10 @@ export default function DashboardPage() {
     const matchesSearch = `${project.name} ${project.description ?? ""}`
       .toLowerCase().includes(query);
     return matchesType && matchesSearch;
+  }).sort((a, b) => {
+    if (sort === "name") return a.name.localeCompare(b.name) || a.id - b.id;
+    const key = sort === "created" ? "created_at" : "updated_at";
+    return Date.parse(b[key]) - Date.parse(a[key]) || b.id - a.id;
   });
 
   if (loading) {
@@ -292,23 +299,25 @@ export default function DashboardPage() {
           </section>
         )}
 
+        <DemoProject />
         <section id="studios" className={styles.section} aria-labelledby="studios-heading">
           <div className={styles.sectionHeading}>
-            <h2 id="studios-heading">Your creative studios</h2>
+            <h2 id="studios-heading">Your creative studios</h2><Link href="/help">Browse the Help Centre →</Link>
             <p>Choose a starting point. Each studio opens through a project.</p>
           </div>
           <div className={styles.studioGrid}>
             {studios.map((studio) => (
               <article key={studio.type} className={`${styles.studio} ${studio.type === "music" ? styles.music : ""}`}>
+                <StudioArtwork kind={studio.type} />
                 <div className={styles.cardTop}>
-                  <span className={styles.studioIcon} aria-hidden="true">{studio.icon}</span>
+                  <span className={styles.tag}>Creative workspace</span>
                   <span className={styles.tag}>Studio available</span>
                 </div>
                 <h3>{studio.title}</h3>
                 <p>{studio.description}</p>
                 <small>{studio.detail}</small>
                 <button className={styles.studioAction} onClick={() => openCreate(studio.type)}>
-                  Create {typeLabel(studio.type).toLowerCase()} project ?
+                  Create {typeLabel(studio.type).toLowerCase()} project →
                 </button>
               </article>
             ))}
@@ -334,6 +343,14 @@ export default function DashboardPage() {
             </label>
           </div>
 
+          <div className="mb-5 flex flex-wrap items-center gap-4 text-sm">
+            <label>Sort projects <select className="ml-2 rounded-lg border border-zinc-600 bg-zinc-950 p-2" value={sort} onChange={event => setSort(event.target.value)}>
+              <option value="updated">Recently updated</option><option value="created">Recently created</option><option value="name">Name A–Z</option>
+            </select></label>
+            <button type="button" className={styles.secondary} onClick={() => { setSearch(""); setFilter("all"); setSort("updated"); }}>Clear filters</button>
+            <button type="button" className={styles.secondary} disabled={creating || signingOut} onClick={() => setRetry(value => value + 1)}>Refresh projects</button>
+            <span role="status">Showing {visible.length} of {projects.length} projects</span>
+          </div>
           {error && projects.length === 0 ? (
             <div className={styles.empty}><p>Projects could not be loaded. Use Retry workspace above.</p></div>
           ) : visible.length === 0 ? (
@@ -354,10 +371,11 @@ export default function DashboardPage() {
                     </div>
                     <h3>{project.name}</h3>
                     <p>{project.description || "Open this project to develop your creative direction."}</p>
+                    <p className="text-xs text-zinc-400">Updated <time dateTime={project.updated_at}>{new Date(project.updated_at).toLocaleDateString()}</time></p>
                     <div className={styles.projectFooter}>
                       <span>Project #{project.id}</span>
-                      <Link href={`/projects/${project.id}`}>Open project ?</Link>
-                      {studio && <Link href={studio}>Open studio ?</Link>}
+                      <Link href={`/projects/${project.id}`}>Open project →</Link>
+                      {studio && <Link href={studio}>Open studio →</Link>}
                     </div>
                   </article>
                 );
@@ -365,7 +383,7 @@ export default function DashboardPage() {
             </div>
           )}
         </section>
-        <footer className={styles.footer}>IndaVerse ? A creative platform in development by Yaqini &amp; Duniya Technology.</footer>
+        <footer className={styles.footer}>IndaVerse / A creative platform in development by Yaqini &amp; Duniya Technology.</footer>
       </main>
     </div>
   );

@@ -37,12 +37,12 @@ class PlanStep(BaseModel):
 
 class PlanCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    expected_brief_version: int = Field(ge=0)
+    expected_brief_version: int = Field(ge=0, strict=True)
 
 
 class PlanUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    expected_version: int = Field(ge=1)
+    expected_version: int = Field(ge=1, strict=True)
     steps: list[PlanStep] = Field(min_length=1, max_length=50)
 
 
@@ -61,5 +61,5 @@ class PlanResponse(BaseModel):
 
 class PlanReview(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    expected_version: int = Field(ge=1)
-    expected_brief_version: int = Field(ge=0)
+    expected_version: int = Field(ge=1, strict=True)
+    expected_brief_version: int = Field(ge=0, strict=True)

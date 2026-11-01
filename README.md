@@ -6,7 +6,7 @@
 
 **Music · Video · Stories · Web & Apps · 2D/3D Games**
 
-An evolving, multi-studio creative workspace by **[Yaqini & Duniya Technology](https://github.com/Yaqini-Duniya-Technology)**.
+An evolving, multi-studio creative workspace by **[Yaqini & Duniya Technology](https://yd.ydtech.workers.dev)**.
 
 **Development stage: Functional local MVP · Active engineering · Not yet production launched**
 
@@ -179,3 +179,26 @@ These are **planned milestones**, not completed capabilities or delivery promise
 *Built in Africa. Designed for creative possibility. Developed responsibly, one milestone at a time.*
 
 </div>
+
+
+## Reliable demo milestone — 1 November 2026
+
+The latest milestone adds a categorized Help Centre, illustrated studio cards, production planning tools, validated draft transfer, opt-in browser recovery, isolated build outputs and a private Zamara demonstration project.
+
+**Workspace validation:** 248 API tests, 23 web unit tests, 7 real-browser workflows and the production TypeScript build passed. These results were obtained locally in the build workspace; GitHub Actions and Windows must report their own results. Browser coverage includes collecting three gems and reaching the demo exit with software WebGL. This is prototype evidence, not a complete game-engine claim.
+
+- [Milestone details and verification limits](docs/RELIABLE-DEMO-MILESTONE.md)
+- [Demonstration walkthrough and screenshot](docs/DEMO.md)
+- [Local operational setup and backup guidance](docs/OPERATIONS.md)
+
+Run `scripts/Setup-Local.ps1` for first-time Windows setup. Keep `.env`, uploaded media and database backups outside Git. Development uses `.next-dev`; release builds use `.next`; isolated browser checks use `.next-e2e`.
+
+```powershell
+npm.cmd --prefix apps/web ci
+Push-Location apps/web
+try { npx.cmd playwright install chromium } finally { Pop-Location }
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Verify-Release.ps1 -Browser
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Start-IndaVerse.ps1 -WebMode production
+```
+
+Create a demo from the signed-in dashboard using **Create private Zamara demo**. It creates a new private copy and never overwrites an existing project. No AI provider is connected.
