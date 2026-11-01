@@ -439,7 +439,7 @@ function GameEditor({ projectId }: { projectId: number }) {
             <p className={styles.footnote}>
               Play opens the saved blueprint. Save dimension changes before testing them.
               The 2D player uses your saved 2D layout or its starter layout.
-              The 3D player currently uses a fixed starter course with placeholder shapes.
+              The 3D player uses your saved 3D scene, or a starter scene when none is saved. Both use placeholder shapes.
               Written levels, asset requirements, and artwork are design references;
               they are not automatically converted into gameplay.
               Switching dimension preserves your blueprint requirements and separate 2D layout.
