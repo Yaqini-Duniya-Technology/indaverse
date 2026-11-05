@@ -9,7 +9,7 @@
     "acceptance_criteria": "On Windows, a documented start runs the intended API/web independently of terminal lifetime; foreign listeners are untouched and startup failure identifies a private log.",
     "testing": "See PHASE2-STAGE-A.md; completion is not implied by code presence.",
     "documentation": "docs/PHASE2-STAGE-A.md",
-    "git_reference": "Phase 2 release-readiness branch; PR assigned after validation"
+    "git_reference": "https://github.com/Yaqini-Duniya-Technology/indaverse/pull/2"
   },
   {
     "id": "IND-002",
@@ -21,19 +21,19 @@
     "acceptance_criteria": "Preflight rejects missing/placeholders, incorrect local API URLs and invalid backend settings without disclosing values.",
     "testing": "See PHASE2-STAGE-A.md; completion is not implied by code presence.",
     "documentation": "docs/PHASE2-STAGE-A.md",
-    "git_reference": "Phase 2 release-readiness branch; PR assigned after validation"
+    "git_reference": "https://github.com/Yaqini-Duniya-Technology/indaverse/pull/2"
   },
   {
     "id": "IND-003",
     "upgrade": "Database and Project Persistence Audit",
     "priority": "Critical",
     "studio": "Platform",
-    "status": "In Progress",
+    "status": "Tested",
     "dependencies": "Verified merged MVP and target Windows environment",
     "acceptance_criteria": "Projects/drafts/history survive reload; real PostgreSQL concurrent saves permit one current writer and reject a stale writer.",
-    "testing": "See PHASE2-STAGE-A.md; completion is not implied by code presence.",
+    "testing": "248 isolated API regressions passed. PostgreSQL save-concurrency CI passed on implementation commit 98cd5e0: https://github.com/Yaqini-Duniya-Technology/indaverse/actions/runs/41985766741. Covers concurrent game-blueprint writers, not every studio concurrency edge case.",
     "documentation": "docs/PHASE2-STAGE-A.md",
-    "git_reference": "Phase 2 release-readiness branch; PR assigned after validation"
+    "git_reference": "https://github.com/Yaqini-Duniya-Technology/indaverse/pull/2"
   },
   {
     "id": "IND-004",
@@ -45,7 +45,7 @@
     "acceptance_criteria": "An enabled autosave increments a changed draft version; network failure preserves editor text and disables automatic retries.",
     "testing": "See PHASE2-STAGE-A.md; completion is not implied by code presence.",
     "documentation": "docs/PHASE2-STAGE-A.md",
-    "git_reference": "Phase 2 release-readiness branch; PR assigned after validation"
+    "git_reference": "https://github.com/Yaqini-Duniya-Technology/indaverse/pull/2"
   },
   {
     "id": "IND-005",
@@ -57,7 +57,7 @@
     "acceptance_criteria": "Users can compare and restore revisions to a draft without overwriting server history; document unsupported studios.",
     "testing": "See PHASE2-STAGE-A.md; completion is not implied by code presence.",
     "documentation": "docs/PHASE2-STAGE-A.md",
-    "git_reference": "Phase 2 release-readiness branch; PR assigned after validation"
+    "git_reference": "https://github.com/Yaqini-Duniya-Technology/indaverse/pull/2"
   },
   {
     "id": "IND-006",
@@ -69,7 +69,7 @@
     "acceptance_criteria": "Connection, loading and save failures expose an actionable recovery path; status checks reveal no secrets or private project data.",
     "testing": "See PHASE2-STAGE-A.md; completion is not implied by code presence.",
     "documentation": "docs/PHASE2-STAGE-A.md",
-    "git_reference": "Phase 2 release-readiness branch; PR assigned after validation"
+    "git_reference": "https://github.com/Yaqini-Duniya-Technology/indaverse/pull/2"
   },
   {
     "id": "IND-007",
@@ -81,7 +81,7 @@
     "acceptance_criteria": "Cross-account reads/writes/media access are denied and missing/expired sessions are rejected by automated checks.",
     "testing": "See PHASE2-STAGE-A.md; completion is not implied by code presence.",
     "documentation": "docs/PHASE2-STAGE-A.md",
-    "git_reference": "Phase 2 release-readiness branch; PR assigned after validation"
+    "git_reference": "https://github.com/Yaqini-Duniya-Technology/indaverse/pull/2"
   },
   {
     "id": "IND-008",
@@ -91,9 +91,9 @@
     "status": "Tested",
     "dependencies": "Verified merged MVP and target Windows environment",
     "acceptance_criteria": "Core workflow regression suites run with isolated data and report real pass/failure counts.",
-    "testing": "See PHASE2-STAGE-A.md; completion is not implied by code presence.",
+    "testing": "248 API, 7 operational, 25 web unit and 9 browser checks passed in workspace; Docker concurrency/restore additionally passed CI. Windows managed services need local acceptance.",
     "documentation": "docs/PHASE2-STAGE-A.md",
-    "git_reference": "Phase 2 release-readiness branch; PR assigned after validation"
+    "git_reference": "https://github.com/Yaqini-Duniya-Technology/indaverse/pull/2"
   },
   {
     "id": "IND-009",
@@ -105,7 +105,7 @@
     "acceptance_criteria": "CI runs required tests/builds plus scoped lint and actual PostgreSQL/restore checks; repository-wide lint debt is explicitly tracked.",
     "testing": "See PHASE2-STAGE-A.md; completion is not implied by code presence.",
     "documentation": "docs/PHASE2-STAGE-A.md",
-    "git_reference": "Phase 2 release-readiness branch; PR assigned after validation"
+    "git_reference": "https://github.com/Yaqini-Duniya-Technology/indaverse/pull/2"
   },
   {
     "id": "IND-010",
@@ -117,7 +117,7 @@
     "acceptance_criteria": "Setup, startup/stop, backups/restoration and release gates are documented and verified on the target operating system.",
     "testing": "See PHASE2-STAGE-A.md; completion is not implied by code presence.",
     "documentation": "docs/PHASE2-STAGE-A.md",
-    "git_reference": "Phase 2 release-readiness branch; PR assigned after validation"
+    "git_reference": "https://github.com/Yaqini-Duniya-Technology/indaverse/pull/2"
   },
   {
     "id": "IND-011",

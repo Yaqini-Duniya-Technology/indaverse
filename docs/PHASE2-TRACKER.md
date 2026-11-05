@@ -6,7 +6,7 @@ The full acceptance scope comes from the supplied master brief. Tested means sta
 |---|---|---|---|---|
 | IND-001 | Reliable Development Startup | Critical | Platform | In Progress |
 | IND-002 | Environment Configuration Validation | Critical | Platform | Tested |
-| IND-003 | Database and Project Persistence Audit | Critical | Platform | In Progress |
+| IND-003 | Database and Project Persistence Audit | Critical | Platform | Tested |
 | IND-004 | Autosave Reliability | High | Platform | Tested |
 | IND-005 | Project Version History | High | Platform | In Progress |
 | IND-006 | Error Handling and Recovery | High | Platform | Tested |

@@ -44,7 +44,7 @@ Operational unit tests cover early child exit, occupied-port refusal, valid/inva
 
 Local Docker is unavailable in the build workspace. PostgreSQL locking and a synthetic Docker restore drill run in separate CI workflows; their results must be reported independently. A passing synthetic drill does not restore-test the user's own backup.
 
-Windows detached startup/stop and a real local backup remain acceptance items for the user machine. IND-001/003/005/009/010 are not marked complete in full. No whole Stage A completion or production readiness is claimed until those conditions pass. Full-repository lint debt remains outside this batch; new files receive scoped lint checks.
+Windows detached startup/stop and a real local backup remain acceptance items for the user machine. IND-001/005/009/010 are not marked complete in full. No whole Stage A completion or production readiness is claimed until those conditions pass. Full-repository lint debt remains outside this batch; new files receive scoped lint checks.
 
 ## Continue after Stage A
 
@@ -56,3 +56,14 @@ Stage B will retain the courtyard fixture while adding explicit multi-scene/rule
 Workspace results: 248 API tests passed; 7 operational tests passed; 25 web unit tests passed; 9 real-browser tests passed (including the new status/autosave failure cases); production build and scoped lint passed. A live Linux check started API and production web as detached children, verified both remained ready after launcher commands exited, then removed only its own fixture processes. This is not a Windows PowerShell execution result.
 
 Docker-dependent results are recorded after CI runs, separately from the above workspace results. No user backup has been supplied or restored.
+
+
+## External CI evidence for implementation commit 98cd5e0
+
+- [PostgreSQL save concurrency](https://github.com/Yaqini-Duniya-Technology/indaverse/actions/runs/41985766741): passed.
+- [Synthetic isolated backup restore drill](https://github.com/Yaqini-Duniya-Technology/indaverse/actions/runs/41985766723): passed.
+
+These results do not restore-test a real user backup and do not execute Windows PowerShell. PR: https://github.com/Yaqini-Duniya-Technology/indaverse/pull/2.
+
+- [Browser workflow CI](https://github.com/Yaqini-Duniya-Technology/indaverse/actions/runs/41985766726): passed, including service status and autosave failure recovery.
+- [Release verification CI](https://github.com/Yaqini-Duniya-Technology/indaverse/actions/runs/41985766708) and [existing web/API CI](https://github.com/Yaqini-Duniya-Technology/indaverse/actions/runs/41985766710): passed.
