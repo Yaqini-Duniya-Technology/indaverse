@@ -42,3 +42,6 @@ uploads/
 .next-e2e/
 playwright-report/
 test-results/
+
+# Private service logs and runtime process metadata
+.local-run/

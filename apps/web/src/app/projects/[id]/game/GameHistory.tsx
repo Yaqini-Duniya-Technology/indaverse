@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import SnapshotCompare from "@/components/SnapshotCompare";
 import ProjectImage from "@/components/ProjectImage";
 import {
   listGameRevisions, type GameRevision, type GameRevisionPage,
@@ -8,8 +9,9 @@ import {
 import styles from "./game.module.css";
 
 export default function GameHistory({
-  projectId, savedVersion, disabled, onRestore,
+  projectId, savedVersion, disabled, onRestore, currentDraft,
 }: {
+  currentDraft: unknown;
   projectId: number;
   savedVersion: number;
   disabled: boolean;
@@ -96,6 +98,7 @@ export default function GameHistory({
             <button className={styles.secondary} disabled={disabled}
               onClick={() => setSelected(null)}>Close review</button>
           </div>
+          <SnapshotCompare saved={selected.snapshot} working={currentDraft} />
           <h3>{selected.snapshot.title}</h3>
           <p>{selected.snapshot.dimension.toUpperCase()} / {selected.snapshot.genre || "Genre not set"}</p>
           <h4 className="mt-5 font-semibold">Concept</h4>

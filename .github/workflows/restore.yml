@@ -1,0 +1,15 @@
+name: Isolated backup restore drill
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: docker pull postgres:16
+      - run: python scripts/test_restore_drill.py

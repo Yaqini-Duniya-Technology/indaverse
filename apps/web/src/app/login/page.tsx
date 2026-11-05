@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -62,6 +63,7 @@ export default function LoginPage() {
             </p>
           </div>
 
+          <p className="mb-4 text-sm"><Link className="underline text-sky-200" href="/status">Connection trouble? Check service status</Link></p>
           {error && (
             <div className="mb-5 rounded-lg border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300">
               {error}
@@ -126,7 +128,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-zinc-400">
-            Don't have an account?{" "}
+            Don’t have an account?{" "}
             <a
               href="/register"
               className="font-medium text-white hover:underline"

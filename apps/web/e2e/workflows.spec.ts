@@ -115,3 +115,26 @@ test('demo scene starts, pauses, collects all gems, wins and restarts in WebGL',
   await page.getByRole('button', {name:'Restart',exact:true}).click();
   await expect(page.getByRole('status').filter({hasText:'Gems 0 of 3'})).toBeVisible();
 });
+
+test('status page identifies API without exposing private configuration', async ({page}) => {
+  await page.goto('/status');
+  await expect(page.getByText('Checks finished', {exact:true})).toBeVisible();
+  await expect(page.getByText('IndaVerse API responding', {exact:true})).toBeVisible();
+  await expect(page.getByText(/SECRET_KEY|DATABASE_URL|postgresql\+psycopg/)).toHaveCount(0);
+});
+
+test('autosave uses current version and failed manual save preserves working text', async ({page}) => {
+  await account(page);
+  const response=await page.request.post(`${api}/projects/demo/zamara`);
+  const {id}=await response.json();
+  await page.goto(`/projects/${id}/game`);
+  await page.getByRole('checkbox',{name:'Enable server autosave for this visit'}).check();
+  await page.getByLabel('Game title',{exact:true}).fill('Autosave persistence check');
+  await expect.poll(async()=> (await (await page.request.get(`${api}/projects/${id}/game`)).json()).version,{timeout:25000}).toBe(2);
+  await page.getByRole('checkbox',{name:'Enable server autosave for this visit'}).uncheck();
+  await page.route(`**/api/v1/projects/${id}/game`,route=>route.request().method()==='PUT' ? route.abort() : route.continue());
+  await page.getByLabel('Game title',{exact:true}).fill('Keep this unsaved title');
+  await page.getByRole('button',{name:'Save blueprint',exact:true}).click();
+  await expect(page.getByText(/Autosave is off after a save error/)).toBeVisible();
+  await expect(page.getByLabel('Game title',{exact:true})).toHaveValue('Keep this unsaved title');
+});

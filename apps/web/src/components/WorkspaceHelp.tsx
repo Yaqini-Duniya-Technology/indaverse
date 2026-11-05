@@ -30,7 +30,7 @@ function HelpContent({ guide }: { guide: ReturnType<typeof guideFor> }) {
         <div className={styles.heading}><h2>{guide.title}</h2><button type="button" onClick={() => {
           if (details.current) details.current.open = false; summary.current?.focus();
         }} aria-label="Close workspace help">Close</button></div>
-        <p>{guide.intro}</p><Link href="/help">Open categorized Help Centre →</Link>
+        <p>{guide.intro}</p><Link href="/help">Open categorized Help Centre →</Link> <Link href="/status">Check service status</Link>
         <label htmlFor={`${id}-search`}>Find a field or action</label>
         <input type="search" id={`${id}-search`} maxLength={150} value={search} onChange={event => setSearch(event.target.value)} />
         <p role="status">{fields.length} help topics</p>
