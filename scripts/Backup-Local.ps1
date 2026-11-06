@@ -1,6 +1,7 @@
 param([string]$Destination = "")
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path $PSScriptRoot -Parent)
+if (Get-NetTCPConnection -LocalPort 8002 -State Listen -ErrorAction SilentlyContinue) { throw "Stop the IndaVerse API before a consistent database/media backup: Stop-IndaVerse.ps1 -Service api. Also stop any other writers." }
 $dockerExe = "C:/Program Files/Docker/Docker/resources/bin/docker.exe"
 if (-not $Destination) { $Destination = Join-Path (Get-Location) ("backups/" + (Get-Date -Format "yyyyMMdd-HHmmss") + "-" + [guid]::NewGuid().ToString("N").Substring(0,8)) }
 if (Test-Path -LiteralPath $Destination) { throw "Choose a new backup folder." }
@@ -13,5 +14,6 @@ if ($LASTEXITCODE -ne 0) { throw "Backup copy failed." }
 & $dockerExe compose -p indaverse exec -T db pg_restore --list /tmp/indaverse-backup.dump | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Database archive inspection failed." }
 if (Test-Path "apps/api/uploads") { Copy-Item -LiteralPath "apps/api/uploads" -Destination (Join-Path $Destination "uploads") -Recurse }
-Get-ChildItem -LiteralPath $Destination -Recurse -File | Get-FileHash -Algorithm SHA256 | Export-Csv -LiteralPath (Join-Path $Destination "checksums.csv") -NoTypeInformation
-Write-Host "Backup saved to $Destination. This archive was inspected, not restore-tested. Keep it private."
+& "apps/api/.venv/Scripts/python.exe" scripts/backup_manifest.py $Destination
+if ($LASTEXITCODE -ne 0) { throw "Manifest creation failed." }
+Write-Host "Backup saved to $Destination. This archive was inspected, not restore-tested. Run Verify-Backup.ps1 against this new folder for an isolated restore drill. Keep it private."
