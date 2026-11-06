@@ -69,7 +69,7 @@ def start(kind, mode='development', timeout=180):
         command = [node, str(ROOT / 'apps/web/node_modules/next/dist/bin/next'), 'start' if mode == 'production' else 'dev', '--hostname', '127.0.0.1', '--port', str(port)]
         cwd = ROOT / 'apps/web'
     RUNTIME.mkdir(exist_ok=True)
-    flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS if os.name == 'nt' else 0
+    flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
     with (RUNTIME / f'{kind}.log').open('ab') as log:
         process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
             creationflags=flags, start_new_session=os.name != 'nt', close_fds=True)

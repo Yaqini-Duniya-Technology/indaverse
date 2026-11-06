@@ -28,3 +28,9 @@ body {
 /* Keep the help control clear of the final form actions on narrow screens. */
 body { padding-bottom: 84px; }
 @media print { body { padding-bottom: 0; } }
+
+/* System fonts work without external font downloads. */
+:root {
+  --font-geist-sans: Arial, Helvetica, sans-serif;
+  --font-geist-mono: Consolas, "Courier New", monospace;
+}

@@ -14,3 +14,55 @@
 .guide blockquote { margin: 14px 0; padding: 16px; border-left: 3px solid #b5d1ff; background: #21304a; }
 .page :focus-visible { outline: 3px solid #f4da9a; outline-offset: 4px; }
 @media (max-width: 720px) { .layout { grid-template-columns: 1fr; gap: 12px; } .layout aside { display: flex; flex-wrap: wrap; gap: 8px; } .layout aside h2 { width: 100%; } .layout aside button { width: auto; margin: 0; } .guide { padding: 18px; } }
+
+
+/* Help Centre readable colour scheme */
+.page {
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding: 36px max(24px, calc((100% - 1120px) / 2)) 100px;
+  background: #f4f7fb;
+  color: #17253b;
+  color-scheme: light;
+}
+.page a { color: #174ea6; }
+.page h1, .page h2, .page h3 { color: #14243d; }
+.page p, .page label { color: #334155; }
+.layout aside button {
+  background: #ffffff;
+  color: #243754;
+  border-color: #73839a;
+  font-weight: 600;
+}
+.layout aside button:hover {
+  background: #e5edfa;
+  color: #14243d;
+}
+.layout button[aria-pressed="true"] {
+  background: #174ea6;
+  color: #ffffff;
+  border-color: #174ea6;
+}
+.page input {
+  background: #ffffff;
+  color: #17253b;
+  border-color: #73839a;
+}
+.page input::placeholder { color: #526176; opacity: 1; }
+.guide {
+  background: #ffffff;
+  color: #17253b;
+  border-color: #a8b5c6;
+}
+.guide details { border-color: #c3cddb; }
+.guide summary { color: #14243d; }
+.guide blockquote {
+  background: #eaf1fb;
+  color: #17253b;
+  border-left-color: #174ea6;
+}
+.page :focus-visible {
+  outline: 3px solid #174ea6;
+  outline-offset: 4px;
+}
