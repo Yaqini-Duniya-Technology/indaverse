@@ -4,7 +4,7 @@ Set-Location (Split-Path $PSScriptRoot -Parent)
 Write-Host "[1/4] Isolated API tests" -ForegroundColor Cyan
 & "apps/api/.venv/Scripts/python.exe" scripts/test_api.py
 if ($LASTEXITCODE -ne 0) { throw "API tests failed." }
-& "apps/api/.venv/Scripts/python.exe" -m pytest tests/operations -q
+& "apps/api/.venv/Scripts/python.exe" -m pytest tests/operations -q --basetemp (Join-Path ([IO.Path]::GetTempPath()) ("indaverse-ops-" + [guid]::NewGuid().ToString("N")))
 if ($LASTEXITCODE -ne 0) { throw "Operational tool tests failed." }
 Write-Host "[2/4] Web logic tests" -ForegroundColor Cyan
 npm.cmd --prefix apps/web test
