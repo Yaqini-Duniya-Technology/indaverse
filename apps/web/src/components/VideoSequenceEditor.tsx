@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiDownload, apiFetch } from "@/lib/api";
 
-type Cut = { source_id: string; start_ms: number; end_ms: number };
+type Cut = { source_id: string; start_ms: number; end_ms: number; title?: string; muted?: boolean };
 type Source = { id: string; name: string; duration_ms: number };
 type Sequence = { version: number; clips: Cut[]; sources: Source[]; renderer_available: boolean };
 const control = "rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-2 disabled:opacity-50";
@@ -65,7 +65,7 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
 
   return <section className="space-y-4 rounded-2xl border border-zinc-800 bg-black p-6" aria-labelledby="sequence-heading">
     <h2 id="sequence-heading" className="text-xl font-semibold">Saved clip sequence</h2>
-    <p className="text-zinc-300">Arrange up to four MP4 clips and save their cut points. Export joins the cuts in order with straight cuts at 640 × 360.</p>
+    <p className="text-zinc-300">Arrange up to four MP4 clips and save their cut points. Export joins the cuts at 640 × 360 and applies each clip’s title and mute setting. Source previews play the original file.</p>
     <button type="button" className={control} disabled={busy} onClick={() => {
       if (dirty && !window.confirm("Discard unsaved sequence edits and reload?")) return;
       void run(async signal => install(await apiFetch<Sequence>(base, {signal})));
@@ -109,6 +109,24 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
                     setResult(undefined);
                   }} />
               </label>)}
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="min-w-0 max-w-full">Clip title (optional)
+                <input type="text" maxLength={48} className={`${control} block w-64 max-w-full`}
+                  disabled={busy} value={cut.title ?? ""} onChange={event => {
+                    const title = event.target.value;
+                    setClips(current => current.map(item => item.source_id === cut.source_id ? {...item, title} : item));
+                    setResult(undefined);
+                  }} />
+              </label>
+              <label className="flex items-center gap-2 py-2">
+                <input type="checkbox" disabled={busy} checked={cut.muted ?? false} onChange={event => {
+                  const muted = event.target.checked;
+                  setClips(current => current.map(item => item.source_id === cut.source_id ? {...item, muted} : item));
+                  setResult(undefined);
+                }} />
+                Mute clip audio
+              </label>
             </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" className={control} disabled={busy} onClick={() => void run(async signal => {

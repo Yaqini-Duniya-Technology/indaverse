@@ -67,5 +67,25 @@ def test_sequence_reopens_and_exports_saved_order(video_workspace, tmp_path):
         assert (max(abs(sample) for (sample,) in struct.iter_unpack("<h", pcm)) > 100) == expected_tone
     subprocess.run([ffmpeg, "-v", "error", "-xerror", "-i", str(output), "-f", "null", "-"],
                    check=True, timeout=10)
-    assert client.put(base, json={"version": 3, "clips": [ordered[1]]}).json()["version"] == 4
+    for invalid in ({"title": "line one\nline two"}, {"title": "x" * 49}, {"muted": "true"}):
+        assert client.put(base, json={"version": 3, "clips": [ordered[0], {**ordered[1], **invalid}]}).status_code == 422
+    titled = [ordered[0], {**ordered[1], "title": "Zamara: 100% %{pts}", "muted": True}]
+    assert client.put(base, json={"version": 3, "clips": titled}).json()["version"] == 4
+    assert client.get(base).json()["clips"] == titled
+    response = client.post(base + "/render?version=4")
+    assert response.status_code == 200, response.text
+    output.write_bytes(response.content)
+    for time, has_title in (("0.25", False), ("1.5", True), ("2.1", True)):
+        frame = subprocess.check_output([
+            ffmpeg, "-v", "error", "-ss", time, "-i", str(output), "-frames:v", "1",
+            "-vf", "crop=560:64:40:286", "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
+        ], timeout=10)
+        white = sum(min(pixel) > 200 for pixel in struct.iter_unpack("BBB", frame))
+        assert (white > 50) == has_title
+    pcm = subprocess.check_output([
+        ffmpeg, "-v", "error", "-ss", "1.4", "-i", str(output), "-t", "0.2",
+        "-map", "0:a:0", "-ac", "1", "-f", "s16le", "-",
+    ], timeout=10)
+    assert max(abs(sample) for (sample,) in struct.iter_unpack("<h", pcm)) < 10
+    assert client.put(base, json={"version": 4, "clips": [titled[1]]}).json()["version"] == 5
     assert client.get(f"{base}/sources/{blue['source_id']}").status_code == 404

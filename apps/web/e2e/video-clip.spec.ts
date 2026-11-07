@@ -81,12 +81,16 @@ test("save, reopen and render two clips as one MP4", async ({ page }) => {
     await editor.getByRole("listitem").filter({hasText: "blue.mp4"})
       .getByRole("button", {name: "Move earlier"}).click();
     await editor.getByLabel("End seconds").first().fill("1");
+    await editor.getByLabel("Clip title (optional)").first().fill("Welcome to Zamara");
+    await editor.getByLabel("Mute clip audio").first().check();
     await editor.getByRole("button", {name: "Save sequence"}).click();
     await expect(editor.getByText(/Saved version 3/)).toBeVisible();
     await page.reload();
     await editor.getByRole("button", {name: "Open clip sequence"}).click();
     await expect(editor.getByRole("listitem").first()).toContainText("blue.mp4");
     await expect(editor.getByLabel("End seconds").first()).toHaveValue("1");
+    await expect(editor.getByLabel("Clip title (optional)").first()).toHaveValue("Welcome to Zamara");
+    await expect(editor.getByLabel("Mute clip audio").first()).toBeChecked();
     await editor.getByRole("button", {name: "Preview source"}).first().click();
     await expect(editor.getByLabel("Saved source preview")).toHaveAttribute("src", /^blob:/);
     await editor.getByRole("button", {name: "Render saved sequence"}).click();
