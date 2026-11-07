@@ -89,3 +89,33 @@ export async function apiFetch<T>(
 
   return data as T;
 }
+
+// Binary exports return private, typed attachments instead of JSON.
+export async function apiDownload(
+  endpoint: string,
+  input: Blob,
+  inputType: string,
+  outputType: string,
+  signal: AbortSignal,
+): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, {
+      method: "POST", credentials: "include", body: input,
+      headers: { "Content-Type": inputType }, signal,
+    });
+  } catch (error) {
+    if (signal.aborted) throw error;
+    throw new ApiError("Cannot reach IndaVerse. Your source file has not been changed.", 0);
+  }
+  if (!response.ok) {
+    const data: unknown = await response.json().catch(() => null);
+    throw new ApiError(errorMessage(data) || `Export failed (${response.status}).`, response.status);
+  }
+  if (response.headers.get("content-type") !== outputType) {
+    throw new ApiError("IndaVerse returned an unexpected export format.", response.status);
+  }
+  const file = await response.blob();
+  if (!file.size) throw new ApiError("IndaVerse returned an empty export.", response.status);
+  return file;
+}

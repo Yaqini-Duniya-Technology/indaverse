@@ -61,3 +61,5 @@ Next: define shared export contracts, then deliver a narrow Video Studio workflo
 ## Design reference for the next phase
 
 [CapCut's editing workflow](https://www.capcut.com/resource/ai-video-editor-guide) separates clip import, manual timeline edits, optional assists and export. [Its range export guide](https://www.capcut.com/help/export-clip-of-video) gives a concrete acceptance idea: a selected range must change the bytes and duration of the exported video. For IndaVerse, the first video milestone should prove a manual cut can be rendered and replayed before adding generation.
+
+The next slice is documented in [Video Studio: trim and export a clip](VIDEO-CLIP-EXPORT.md).
