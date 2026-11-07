@@ -1,5 +1,6 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Literal
 from urllib.parse import unquote
 from uuid import uuid4
 
@@ -32,11 +33,16 @@ class Cut(BaseModel):
     volume_percent: int = Field(default=100, ge=0, le=100)
     fade_edges: bool = False
 
-    @field_validator("title")
+    framing: Literal["fit", "fill"] = "fit"
+    title_position: Literal["top", "bottom"] = "bottom"
+    title_duration_ms: int = Field(default=0, ge=0, le=export.MAX_SEQUENCE_MS)
+    caption: str = Field(default="", max_length=90)
+
+    @field_validator("title", "caption")
     @classmethod
-    def validate_title(cls, value: str) -> str:
+    def validate_clip_text(cls, value: str) -> str:
         if any(not character.isprintable() for character in value):
-            raise ValueError("A clip title must be a single line of printable text.")
+            raise ValueError("Clip text must be a single line of printable text.")
         return value.strip()
 
 
@@ -181,8 +187,20 @@ def preview_source(project_id: int, source_id: str,
     return Response(source.content, media_type="video/mp4", headers={"Cache-Control": "no-store"})
 
 
+@router.get("/captions.srt")
+def download_captions(project_id: int, version: int = Query(ge=0),
+                      user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    sequence, _ = load(db, project_id, user.id, lock=True, version=version)
+    content = export.captions_srt(sequence.clips if sequence else [])
+    if not content:
+        raise HTTPException(422, "Save at least one caption before downloading.")
+    return private_download(content, media_type="application/x-subrip",
+                            filename=f"indaverse-{project_id}-captions.srt")
+
+
 @router.post("/render")
 def render_sequence(project_id: int, version: int = Query(ge=0),
+                    preset: export.Preset = "landscape", burn_captions: bool = False,
                     user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     tools = available_tools()
     # Check ownership and snapshot the expected saved version before rendering.
@@ -197,7 +215,7 @@ def render_sequence(project_id: int, version: int = Query(ge=0),
         items = [(cut, sources[cut["source_id"]].content) for cut in sequence.clips]
         db.close()
         with TemporaryDirectory(prefix="indaverse-sequence-") as folder:
-            content = export.render(tools, Path(folder), items)
+            content = export.render(tools, Path(folder), items, preset=preset, burn_captions=burn_captions)
     except clip_export.ClipError as exc:
         raise HTTPException(exc.status, str(exc)) from exc
     except OSError as exc:

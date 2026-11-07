@@ -1,5 +1,5 @@
 import { spawnSync, execFileSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, expect } from "@playwright/test";
@@ -50,7 +50,7 @@ test("render a selected video range and download a decodable MP4", async ({ page
   }
 });
 
-test("save, reopen and render two clips as one MP4", async ({ page }) => {
+test("save, reopen and export a vertical sequence with captions", async ({ page }) => {
   test.skip(spawnSync("ffmpeg", ["-version"]).status !== 0 ||
     spawnSync("ffprobe", ["-version"]).status !== 0, "Requires FFmpeg and FFprobe.");
   const folder = await mkdtemp(join(tmpdir(), "indaverse-e2e-sequence-"));
@@ -80,8 +80,22 @@ test("save, reopen and render two clips as one MP4", async ({ page }) => {
     }
     await editor.getByRole("listitem").filter({hasText: "blue.mp4"})
       .getByRole("button", {name: "Move earlier"}).click();
-    await editor.getByLabel("End seconds").first().fill("1");
+    await editor.getByRole("button", {name: "Preview source"}).first().click();
+    const useEnd = editor.getByRole("button", {name: "Set end from playhead"});
+    await expect(useEnd).toBeEnabled();
+    const player = editor.getByLabel("Saved source preview");
+    await player.evaluate((video: HTMLVideoElement) => { video.currentTime = 0.25; });
+    await editor.getByRole("button", {name: "Set start from playhead"}).click();
+    await expect(editor.getByLabel("Start seconds").first()).toHaveValue("0.25");
+    await player.evaluate((video: HTMLVideoElement) => { video.currentTime = 1.25; });
+    await useEnd.click();
+    await expect(editor.getByLabel("End seconds").first()).toHaveValue("1.25");
+    await expect(editor.getByRole("link", {name: "Clip 2: 1–3 s"})).toBeVisible();
     await editor.getByLabel("Clip title (optional)").first().fill("Welcome to Zamara");
+    await editor.getByLabel("Title position").first().selectOption("top");
+    await editor.getByLabel("Show title").first().selectOption("500");
+    await editor.getByLabel("Framing").first().selectOption("fill");
+    await editor.getByLabel(/Caption \(optional/).last().fill("Find the beacon.");
     await editor.getByLabel("Mute clip audio").first().check();
     await editor.getByRole("slider", {name: "Clip volume"}).last().press("ArrowLeft");
     await editor.getByLabel(/Fade picture and audio/).last().check();
@@ -90,13 +104,27 @@ test("save, reopen and render two clips as one MP4", async ({ page }) => {
     await page.reload();
     await editor.getByRole("button", {name: "Open clip sequence"}).click();
     await expect(editor.getByRole("listitem").first()).toContainText("blue.mp4");
-    await expect(editor.getByLabel("End seconds").first()).toHaveValue("1");
+    await expect(editor.getByLabel("End seconds").first()).toHaveValue("1.25");
     await expect(editor.getByLabel("Clip title (optional)").first()).toHaveValue("Welcome to Zamara");
+    await expect(editor.getByLabel("Title position").first()).toHaveValue("top");
+    await expect(editor.getByLabel("Show title").first()).toHaveValue("500");
+    await expect(editor.getByLabel("Framing").first()).toHaveValue("fill");
+    await expect(editor.getByLabel(/Caption \(optional/).last()).toHaveValue("Find the beacon.");
     await expect(editor.getByLabel("Mute clip audio").first()).toBeChecked();
     await expect(editor.getByRole("slider", {name: "Clip volume"}).last()).toHaveValue("99");
     await expect(editor.getByLabel(/Fade picture and audio/).last()).toBeChecked();
     await editor.getByRole("button", {name: "Preview source"}).first().click();
     await expect(editor.getByLabel("Saved source preview")).toHaveAttribute("src", /^blob:/);
+    await editor.getByRole("button", {name: "Prepare captions SRT"}).click();
+    const subtitleEvent = page.waitForEvent("download");
+    await editor.getByRole("link", {name: "Download captions SRT"}).click();
+    const subtitle = await subtitleEvent;
+    expect(subtitle.suggestedFilename()).toBe(`indaverse-${id}-captions.srt`);
+    const subtitlePath = join(folder, "captions.srt");
+    await subtitle.saveAs(subtitlePath);
+    expect(await readFile(subtitlePath, "utf8")).toBe("1\n00:00:01,000 --> 00:00:03,000\nFind the beacon.\n");
+    await editor.getByLabel("Video format").selectOption("vertical");
+    await editor.getByLabel("Show captions in the video").check();
     await editor.getByRole("button", {name: "Render saved sequence"}).click();
     const downloadEvent = page.waitForEvent("download");
     await editor.getByRole("link", {name: "Download sequence MP4"}).click();
@@ -107,6 +135,9 @@ test("save, reopen and render two clips as one MP4", async ({ page }) => {
     const duration = execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration",
       "-of", "default=noprint_wrappers=1:nokey=1", output], {encoding: "utf8", timeout: 10000});
     expect(Number(duration.trim())).toBeCloseTo(3, 1);
+    const size = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries",
+      "stream=width,height", "-of", "csv=p=0", output], {encoding: "utf8", timeout: 10000});
+    expect(size.trim()).toBe("360,640");
     execFileSync("ffmpeg", ["-v", "error", "-xerror", "-i", output, "-f", "null", "-"], {timeout: 10000});
   } finally {
     await rm(folder, {recursive: true, force: true});
