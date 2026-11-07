@@ -8,6 +8,9 @@ export const workspaceGuides = {
     field('Project name', 'A short label used on your dashboard; studio drafts can have their own titles.', 'Legends of Zamara — first playable test'),
     field('Project type', 'Choose the studio you intend to use. Website and App both use Web & App Studio.', 'Story / novel for chapter-based writing.'),
     field('Search and sort', 'Search name or description, filter by type, and sort the currently loaded project list.', 'Search Zamara, filter Games, choose Recently updated.'),
+    field('Archive or duplicate', 'Open a project to archive it or copy its saved draft. Archived projects remain editable. Copies start private and exclude media, plans, and previous revisions.', 'Duplicate a saved Zamara draft before trying a new design. Find archived projects using Project status on the dashboard.'),
+    field('My asset library', 'Browse images and audio you own. Copy supported images after confirming permission to reuse them; open the source project for audio.', 'Copy a reference image from a Story project to a Game project. Link the new image from the Game editor.'),
+    field('Creation modes and request history', 'Use the manual editors for production work. AI and integrated Hybrid generation are unavailable; generation history shows recorded image and music requests.', 'Open a project and choose Load generation history to check whether a previous request was unavailable.'),
   ]},
   brief: { title: 'Write a useful creative brief', intro: 'The brief captures direction. Changing it can make an existing project plan stale; it does not rewrite your studio drafts.', fields: [
     field('Creative goal', 'Describe the result and what success would look like.', 'Create a three-level exploration prototype where a player restores a village beacon.'),

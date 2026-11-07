@@ -9,6 +9,7 @@ import { getProject, type Project, type ProjectType } from "@/lib/projects";
 import ProjectDetailsEditor from "./ProjectDetailsEditor";
 import ProjectPlanEditor from "./ProjectPlanEditor";
 
+import CreativeWorkspace from "@/components/CreativeWorkspace";
 import ProjectImages from "@/components/ProjectImages";
 import ProjectImage from "@/components/ProjectImage";
 import styles from "./workspace.module.css";
@@ -200,7 +201,9 @@ function Workspace({ projectId }: { projectId: number }) {
         </section>
 
         <ProjectDetailsEditor project={project} onSaved={detailsSaved} />
-
+        <CreativeWorkspace key={project.id} project={project} onSaved={(updated) => setProject(current => current ? {
+          ...current, archived_at: updated.archived_at, updated_at: updated.updated_at,
+        } : updated)} />
 
         <section id="project-images" style={{ scrollMarginTop: 24 }}>
           <ProjectImages projectId={project.id} onCoverChanged={coverChanged} />

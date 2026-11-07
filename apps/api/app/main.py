@@ -117,3 +117,6 @@ app.include_router(studio_draft_imports_router, prefix="/api/v1")
 
 from app.api.v1.demo_projects import router as demo_projects_router
 app.include_router(demo_projects_router, prefix="/api/v1")
+
+from app.api.v1.creative_workspace import router as creative_workspace_router
+app.include_router(creative_workspace_router, prefix="/api/v1")

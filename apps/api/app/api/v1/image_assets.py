@@ -202,3 +202,55 @@ def set_cover(
 from app.api.v1.image_generation import router as image_generation_router
 
 router.include_router(image_generation_router)
+
+
+class ImageCopyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    destination_project_id: int = Field(gt=0)
+    permission_confirmed: Literal[True]
+
+
+@router.post("/images/{image_id}/copy", status_code=201)
+def copy_image(
+    project_id: int, image_id: int, data: ImageCopyRequest,
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    destination = data.destination_project_id
+    if destination == project_id:
+        raise HTTPException(422, "Choose a different project.")
+    # Lock in ID order so copies in opposite directions cannot deadlock.
+    for item in sorted((project_id, destination)):
+        owned(db, item, user.id, lock=True)
+    source = db.scalar(select(ImageAsset).where(
+        ImageAsset.id == image_id, ImageAsset.project_id == project_id,
+    ))
+    if source is None:
+        raise HTTPException(404, "Image not found.")
+    root = UPLOAD_DIR.resolve()
+    source_path = (root / source.stored_filename).resolve()
+    if not source_path.is_relative_to(root) or not source_path.is_file():
+        raise HTTPException(404, "Image file not found.")
+    # The source was already sanitised by the upload workflow. Preserve its bytes.
+    with source_path.open("rb") as original:
+        encoded = original.read(MAX_BYTES + 1)
+    if source.mime_type != "image/webp" or not encoded or len(encoded) > MAX_BYTES or len(encoded) != source.file_size:
+        raise HTTPException(422, "This image cannot be copied. Upload a new original.")
+    filename = uuid4().hex + ".webp"
+    path = root / filename
+    try:
+        with path.open("xb") as target:
+            target.write(encoded)
+        copy = ImageAsset(
+            project_id=destination, label=source.label, category=source.category,
+            stored_filename=filename, mime_type=source.mime_type,
+            file_size=source.file_size, width=source.width, height=source.height,
+        )
+        db.add(copy)
+        db.flush()
+        result = metadata(copy)
+        db.commit()
+        return result
+    except Exception:
+        db.rollback()
+        path.unlink(missing_ok=True)
+        raise
