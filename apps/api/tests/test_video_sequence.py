@@ -64,7 +64,10 @@ def test_sequence_reopens_and_exports_saved_order(video_workspace, tmp_path):
             ffmpeg, "-v", "error", "-ss", time, "-i", str(output), "-t", "0.2",
             "-map", "0:a:0", "-ac", "1", "-f", "s16le", "-",
         ], timeout=10)
-        assert (max(abs(sample) for (sample,) in struct.iter_unpack("<h", pcm)) > 100) == expected_tone
+        peak = max(abs(sample) for (sample,) in struct.iter_unpack("<h", pcm))
+        assert (peak > 100) == expected_tone
+        if expected_tone:
+            original_peak = peak
     subprocess.run([ffmpeg, "-v", "error", "-xerror", "-i", str(output), "-f", "null", "-"],
                    check=True, timeout=10)
     for invalid in ({"title": "line one\nline two"}, {"title": "x" * 49}, {"muted": "true"}):
@@ -87,5 +90,33 @@ def test_sequence_reopens_and_exports_saved_order(video_workspace, tmp_path):
         "-map", "0:a:0", "-ac", "1", "-f", "s16le", "-",
     ], timeout=10)
     assert max(abs(sample) for (sample,) in struct.iter_unpack("<h", pcm)) < 10
-    assert client.put(base, json={"version": 4, "clips": [titled[1]]}).json()["version"] == 5
+    for invalid in ({"volume_percent": -1}, {"volume_percent": 101}, {"volume_percent": 50.5},
+                    {"fade_edges": "true"}):
+        assert client.put(base, json={"version": 4, "clips": [ordered[0], {**ordered[1], **invalid}]}).status_code == 422
+    faded = [ordered[0], {**titled[1], "muted": False, "volume_percent": 50, "fade_edges": True}]
+    assert client.put(base, json={"version": 4, "clips": faded}).json()["version"] == 5
+    saved_effects = client.get(base).json()["clips"][1]
+    assert saved_effects["volume_percent"] == 50 and saved_effects["fade_edges"] is True
+    assert not saved_effects.get("muted", False)
+    response = client.post(base + "/render?version=5")
+    assert response.status_code == 200, response.text
+    output.write_bytes(response.content)
+    for time, visible in (("0.35", True), ("1.04", False), ("1.55", True), ("2.19", False)):
+        pixel = subprocess.check_output([
+            ffmpeg, "-v", "error", "-ss", time, "-i", str(output), "-frames:v", "1",
+            "-vf", "crop=2:2:320:180,scale=1:1", "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
+        ], timeout=10)
+        assert len(pixel) == 3
+        assert max(pixel) > 200 if visible else max(pixel) < 115
+    for time, middle in (("1.02", False), ("1.45", True), ("2.18", False)):
+        pcm = subprocess.check_output([
+            ffmpeg, "-v", "error", "-ss", time, "-i", str(output), "-t", "0.03",
+            "-map", "0:a:0", "-ac", "1", "-f", "s16le", "-",
+        ], timeout=10)
+        peak = max(abs(sample) for (sample,) in struct.iter_unpack("<h", pcm))
+        if middle:
+            assert peak == pytest.approx(original_peak / 2, rel=0.22)
+        else:
+            assert peak < original_peak * 0.25
+    assert client.put(base, json={"version": 5, "clips": [faded[1]]}).json()["version"] == 6
     assert client.get(f"{base}/sources/{blue['source_id']}").status_code == 404

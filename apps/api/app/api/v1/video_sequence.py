@@ -29,6 +29,8 @@ class Cut(BaseModel):
     end_ms: int = Field(gt=0, le=120_000)
     title: str = Field(default="", max_length=48)
     muted: bool = False
+    volume_percent: int = Field(default=100, ge=0, le=100)
+    fade_edges: bool = False
 
     @field_validator("title")
     @classmethod

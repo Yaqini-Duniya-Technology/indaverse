@@ -83,6 +83,8 @@ test("save, reopen and render two clips as one MP4", async ({ page }) => {
     await editor.getByLabel("End seconds").first().fill("1");
     await editor.getByLabel("Clip title (optional)").first().fill("Welcome to Zamara");
     await editor.getByLabel("Mute clip audio").first().check();
+    await editor.getByRole("slider", {name: "Clip volume"}).last().press("ArrowLeft");
+    await editor.getByLabel(/Fade picture and audio/).last().check();
     await editor.getByRole("button", {name: "Save sequence"}).click();
     await expect(editor.getByText(/Saved version 3/)).toBeVisible();
     await page.reload();
@@ -91,6 +93,8 @@ test("save, reopen and render two clips as one MP4", async ({ page }) => {
     await expect(editor.getByLabel("End seconds").first()).toHaveValue("1");
     await expect(editor.getByLabel("Clip title (optional)").first()).toHaveValue("Welcome to Zamara");
     await expect(editor.getByLabel("Mute clip audio").first()).toBeChecked();
+    await expect(editor.getByRole("slider", {name: "Clip volume"}).last()).toHaveValue("99");
+    await expect(editor.getByLabel(/Fade picture and audio/).last()).toBeChecked();
     await editor.getByRole("button", {name: "Preview source"}).first().click();
     await expect(editor.getByLabel("Saved source preview")).toHaveAttribute("src", /^blob:/);
     await editor.getByRole("button", {name: "Render saved sequence"}).click();
