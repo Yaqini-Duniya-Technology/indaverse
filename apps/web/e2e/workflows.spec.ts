@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { test, expect, type Page } from '@playwright/test';
 const api = 'http://127.0.0.1:8012/api/v1';
 async function account(page: Page) {
@@ -137,4 +138,36 @@ test('autosave uses current version and failed manual save preserves working tex
   await page.getByRole('button',{name:'Save blueprint',exact:true}).click();
   await expect(page.getByText(/Autosave is off after a save error/)).toBeVisible();
   await expect(page.getByLabel('Game title',{exact:true})).toHaveValue('Keep this unsaved title');
+});
+
+test('archive and reopen a private saved copy, then verify the downloaded blueprint', async ({page}) => {
+  await account(page);
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', {name: 'Create private Zamara demo'}).click();
+  await expect(page).toHaveURL(/\/projects\/\d+\/game$/);
+  const source = /projects\/(\d+)/.exec(page.url())![1];
+  await page.goto(`/projects/${source}`);
+  await page.getByRole('button', {name: 'Archive project', exact: true}).click();
+  await expect(page.getByRole('button', {name: 'Unarchive project', exact: true})).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('button', {name: 'Unarchive project', exact: true})).toBeVisible();
+  await page.getByRole('button', {name: 'Duplicate saved content'}).click();
+  const copyLink = page.getByRole('link', {name: /^Open .*\(copy\)$/});
+  await expect(copyLink).toBeVisible();
+  const copyPath = (await copyLink.getAttribute('href'))!;
+  expect(copyPath).not.toBe(`/projects/${source}`);
+  await page.goto('/dashboard');
+  const sourceCard = page.getByRole('article').filter({has: page.locator(`a[href="/projects/${source}"]`)});
+  await expect(sourceCard).toHaveCount(0);
+  await page.getByLabel('Project status').selectOption('archived');
+  await expect(sourceCard).toBeVisible();
+  await page.goto(`${copyPath}/game`);
+  await expect(page.getByLabel('Game title', {exact: true})).toHaveValue(/LEGENDS OF ZAMARA/);
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', {name: 'Export draft', exact: true}).click();
+  const exported = JSON.parse(await readFile((await (await download).path())!, 'utf8'));
+  expect(exported.format).toBe('indaverse-game-blueprint');
+  expect(exported.format_version).toBe(1);
+  expect(exported.source_project_id).toBe(Number(copyPath.split('/').at(-1)));
+  expect(exported.blueprint.title).toMatch(/LEGENDS OF ZAMARA/);
 });

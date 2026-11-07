@@ -16,6 +16,7 @@ export type ProjectVisibility =
   | "public";
 
 export interface Project {
+  archived_at?: string | null;
   cover_image_id?: number | null;
   cover_version?: number;
   id: number;

@@ -47,6 +47,8 @@ class ProjectResponse(BaseModel):
     project_type: str
     description: str | None
     visibility: str
+    archived_at: datetime | None = None
+
     created_at: datetime
     updated_at: datetime
 
