@@ -41,10 +41,10 @@ def run(args, *, timeout, capture=False):
         raise ClipError("The local video renderer could not start.", 503) from exc
 
 
-def probe(ffprobe: str, path: Path):
+def probe(ffprobe: str, path: Path, *, video_only_duration: bool = False):
     raw = run(
         [ffprobe, "-v", "error", "-max_alloc", "67108864", *INPUT_FLAGS,
-         "-show_entries", "format=duration:stream=codec_type,codec_name,width,height:stream_disposition=attached_pic",
+         "-show_entries", "format=duration:stream=codec_type,codec_name,width,height,duration:stream_disposition=attached_pic",
          "-of", "json", str(path)],
         timeout=8, capture=True,
     )
@@ -52,6 +52,12 @@ def probe(ffprobe: str, path: Path):
         info = json.loads(raw)
         duration = float(info["format"]["duration"])
         video = next(s for s in info["streams"] if s["codec_type"] == "video")
+        if video_only_duration:
+            # Ignore a longer audio track when checking whether a video cut exists.
+            track_duration = float(video["duration"])
+            if not math.isfinite(track_duration):
+                raise ValueError
+            duration = min(duration, track_duration)
         has_audio = any(s["codec_type"] == "audio" for s in info["streams"])
         if (not math.isfinite(duration) or duration <= 0 or video["codec_name"] != "h264"
                 or video.get("disposition", {}).get("attached_pic", 0)

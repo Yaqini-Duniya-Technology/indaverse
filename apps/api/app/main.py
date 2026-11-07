@@ -123,3 +123,6 @@ app.include_router(creative_workspace_router, prefix="/api/v1")
 
 from app.api.v1.video_clip_export import router as video_clip_export_router
 app.include_router(video_clip_export_router, prefix="/api/v1")
+
+from app.api.v1.video_sequence import router as video_sequence_router
+app.include_router(video_sequence_router, prefix="/api/v1")

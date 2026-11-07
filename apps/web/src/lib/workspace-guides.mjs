@@ -36,6 +36,7 @@ export const workspaceGuides = {
     field('Reading preview', 'The reader shows saved chapters, not your unsaved editor text.', 'Save Story, then open Preview saved story.'),
   ]},
   video: { title: 'Plan a video shot by shot', intro: 'The video studio stores a script and storyboard. The planned shot schedule is not a rendered movie.', fields: [
+    field('Saved clip sequence', 'Save up to four short MP4 sources, adjust each cut and change the order. Render the saved order as one MP4.', 'Move the blue clip before the red clip, save, reopen and download the sequence.'),
     field('Trim and export an MP4', 'With local export enabled, choose an H.264 MP4 under 32 MB and no longer than 120 seconds. Select a 0.5–30-second range, then render and download it. The source and storyboard stay unchanged.', 'Choose a 12-second video, set Start to 2 and End to 7, then export a five-second MP4.'),
     field('Aspect ratio', 'Choose the intended framing for the video.', '16:9 landscape, 9:16 portrait, or 1:1 square.'),
     field('Script', 'Write the narrative or spoken content. Shot durations are entered separately.', 'Opening narration introduces the village and its dry fountain.'),

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import VideoSequenceEditor from "@/components/VideoSequenceEditor";
 import VideoClipExport from "@/components/VideoClipExport";
 import StudioWorkbench from "@/components/StudioWorkbench";
 import DraftExchange from "@/components/DraftExchange";
@@ -248,7 +249,8 @@ function VideoEditor({ projectId }: { projectId: number }) {
             setData(next); setNotice("Reviewed draft applied. Save manually when ready."); return true;
           }} />
         <StudioWorkbench kind="video" projectId={projectId} data={data} version={version} dirty={dirty} />
-        <VideoClipExport key={projectId} projectId={projectId} />
+        <VideoClipExport key={`clip-${projectId}`} projectId={projectId} />
+        <VideoSequenceEditor key={`sequence-${projectId}`} projectId={projectId} />
         <fieldset disabled={saving} className="space-y-8">
           <legend className="sr-only">Video script and shots</legend>
           <section className="rounded-2xl border border-zinc-800 bg-black p-6">

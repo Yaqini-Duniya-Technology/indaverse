@@ -3,6 +3,7 @@ const API_URL =
 
 type ApiOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
+  rawBody?: Blob;
 };
 
 export class ApiError extends Error {
@@ -38,9 +39,9 @@ export async function apiFetch<T>(
   endpoint: string,
   options: ApiOptions = {},
 ): Promise<T> {
-  const { body, headers, ...rest } = options;
+  const { body, rawBody, headers, ...rest } = options;
   const requestHeaders = new Headers(headers);
-  requestHeaders.set("Content-Type", "application/json");
+  requestHeaders.set("Content-Type", rawBody?.type || "application/json");
 
   // Connection recovery messages
   const method = (rest.method ?? "GET").toUpperCase();
@@ -52,7 +53,7 @@ export async function apiFetch<T>(
       ...rest,
       credentials: "include",
       headers: requestHeaders,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: rawBody ?? (body !== undefined ? JSON.stringify(body) : undefined),
     });
   } catch (error) {
     // Preserve deliberate cancellation.
@@ -93,7 +94,7 @@ export async function apiFetch<T>(
 // Binary exports return private, typed attachments instead of JSON.
 export async function apiDownload(
   endpoint: string,
-  input: Blob,
+  input: Blob | undefined,
   inputType: string,
   outputType: string,
   signal: AbortSignal,
@@ -101,7 +102,7 @@ export async function apiDownload(
   let response: Response;
   try {
     response = await fetch(`${API_URL}${endpoint}`, {
-      method: "POST", credentials: "include", body: input,
+      method: input === undefined ? "GET" : "POST", credentials: "include", body: input,
       headers: { "Content-Type": inputType }, signal,
     });
   } catch (error) {
