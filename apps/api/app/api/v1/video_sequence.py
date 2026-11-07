@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import anyio
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
@@ -27,6 +27,15 @@ class Cut(BaseModel):
     source_id: str = Field(pattern="^[a-f0-9]{32}$")
     start_ms: int = Field(ge=0, le=120_000)
     end_ms: int = Field(gt=0, le=120_000)
+    title: str = Field(default="", max_length=48)
+    muted: bool = False
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str) -> str:
+        if any(not character.isprintable() for character in value):
+            raise ValueError("A clip title must be a single line of printable text.")
+        return value.strip()
 
 
 class SequenceEdit(BaseModel):
@@ -148,7 +157,7 @@ def save_sequence(project_id: int, edit: SequenceEdit,
         total += duration
     if total > export.MAX_SEQUENCE_MS:
         raise HTTPException(422, "The sequence must be 30 seconds or shorter.")
-    clips = [clip.model_dump() for clip in edit.clips]
+    clips = [clip.model_dump(exclude_defaults=True) for clip in edit.clips]
     if sequence is not None and sequence.clips != clips:
         sequence.clips = clips
         sequence.version += 1
