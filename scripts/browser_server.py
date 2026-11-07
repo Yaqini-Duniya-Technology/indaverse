@@ -11,7 +11,7 @@ with tempfile.TemporaryDirectory(prefix="indaverse-browser-") as temporary:
     os.environ.update(
         DATABASE_URL="sqlite:///" + str(Path(temporary) / "fixture.sqlite"),
         REDIS_URL="redis://127.0.0.1:6379/15", SECRET_KEY=secrets.token_urlsafe(48),
-        APP_ENV="test", COOKIE_SECURE="false", CORS_ORIGINS='["http://127.0.0.1:3012"]',
+        APP_ENV="test", VIDEO_CLIP_EXPORT_ENABLED="true", COOKIE_SECURE="false", CORS_ORIGINS='["http://127.0.0.1:3012"]',
         ALLOWED_HOSTS='["127.0.0.1","localhost","testserver"]',
     )
     import app.models

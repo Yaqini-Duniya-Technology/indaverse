@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     redis_url: str
     secret_key: str
     cookie_secure: bool = False
+    video_clip_export_enabled: bool = False
     access_token_expire_minutes: int = Field(default=60, ge=5, le=1440)
     cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "testserver"]
