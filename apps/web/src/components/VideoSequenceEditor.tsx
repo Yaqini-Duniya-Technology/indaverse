@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiDownload, apiFetch } from "@/lib/api";
 
-type Cut = { source_id: string; start_ms: number; end_ms: number; title?: string; muted?: boolean };
+type Cut = { source_id: string; start_ms: number; end_ms: number; title?: string; muted?: boolean; volume_percent?: number; fade_edges?: boolean };
 type Source = { id: string; name: string; duration_ms: number };
 type Sequence = { version: number; clips: Cut[]; sources: Source[]; renderer_available: boolean };
 const control = "rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-2 disabled:opacity-50";
@@ -65,7 +65,7 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
 
   return <section className="space-y-4 rounded-2xl border border-zinc-800 bg-black p-6" aria-labelledby="sequence-heading">
     <h2 id="sequence-heading" className="text-xl font-semibold">Saved clip sequence</h2>
-    <p className="text-zinc-300">Arrange up to four MP4 clips and save their cut points. Export joins the cuts at 640 × 360 and applies each clip’s title and mute setting. Source previews play the original file.</p>
+    <p className="text-zinc-300">Arrange up to four MP4 clips and save their cut points. Export joins the cuts at 640 × 360 and applies each clip’s title, volume, mute and fades. Source previews play the original file.</p>
     <button type="button" className={control} disabled={busy} onClick={() => {
       if (dirty && !window.confirm("Discard unsaved sequence edits and reload?")) return;
       void run(async signal => install(await apiFetch<Sequence>(base, {signal})));
@@ -126,6 +126,24 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
                   setResult(undefined);
                 }} />
                 Mute clip audio
+              </label>
+              <label className="block">
+                Clip volume ({cut.volume_percent ?? 100}%)
+                <input type="range" min={0} max={100} step={1} aria-label="Clip volume"
+                  className="block w-36" disabled={busy || cut.muted} value={cut.volume_percent ?? 100}
+                  onChange={event => {
+                    const volume_percent = event.target.valueAsNumber;
+                    setClips(current => current.map(item => item.source_id === cut.source_id ? {...item, volume_percent} : item));
+                    setResult(undefined);
+                  }} />
+              </label>
+              <label className="flex items-center gap-2 py-2">
+                <input type="checkbox" disabled={busy} checked={cut.fade_edges ?? false} onChange={event => {
+                  const fade_edges = event.target.checked;
+                  setClips(current => current.map(item => item.source_id === cut.source_id ? {...item, fade_edges} : item));
+                  setResult(undefined);
+                }} />
+                Fade picture and audio (0.25 s at each end)
               </label>
             </div>
             <div className="flex flex-wrap gap-2">

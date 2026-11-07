@@ -9,6 +9,7 @@ MAX_CLIPS = 4
 MAX_SOURCE_BYTES = 8 * 1024 * 1024
 MAX_SEQUENCE_MS = 30_000
 MIN_SEGMENT_MS = 500
+FADE_SECONDS = 0.25
 
 
 def title_card(path: Path, title: str) -> None:
@@ -27,6 +28,7 @@ def title_card(path: Path, title: str) -> None:
                            radius=8, fill=(0, 0, 0, 206))
     draw.text((x - left, y - top), title, font=font, fill="white")
     canvas.save(path)
+
 
 def render(tools: tuple[str, str], directory: Path, items: list[tuple[dict, bytes]]) -> bytes:
     ffmpeg, ffprobe = tools
@@ -54,15 +56,22 @@ def render(tools: tuple[str, str], directory: Path, items: list[tuple[dict, byte
             overlay_index = len(items) + len(overlays)
             overlays.append(["-threads", "1", "-protocol_whitelist", "file",
                              "-f", "image2", "-pattern_type", "none", "-c:v", "png", "-i", str(card)])
-            filters.append(f"[base{index}][{overlay_index}:v]overlay=eof_action=repeat,format=yuv420p[v{index}]")
+            filters.append(f"[base{index}][{overlay_index}:v]overlay=eof_action=repeat,format=yuv420p[picture{index}]")
         else:
-            filters.append(f"[base{index}]null[v{index}]")
-        if has_audio and not cut.get("muted", False):
+            filters.append(f"[base{index}]null[picture{index}]")
+        video_fade = audio_fade = ""
+        if cut.get("fade_edges", False):
+            fade_out = length - FADE_SECONDS
+            video_fade = f",fade=t=in:st=0:d={FADE_SECONDS},fade=t=out:st={fade_out:.3f}:d={FADE_SECONDS}"
+            audio_fade = f",afade=t=in:st=0:d={FADE_SECONDS},afade=t=out:st={fade_out:.3f}:d={FADE_SECONDS}"
+        filters.append(f"[picture{index}]null{video_fade}[v{index}]")
+        volume = cut.get("volume_percent", 100)
+        if has_audio and not cut.get("muted", False) and volume > 0:
             audio = (f"[{index}:a:0]asetpts=PTS-STARTPTS,aresample=48000,"
-                     "aformat=sample_rates=48000:channel_layouts=stereo,apad")
+                     f"aformat=sample_rates=48000:channel_layouts=stereo,volume={volume / 100:.2f},apad")
         else:
             audio = "anullsrc=channel_layout=stereo:sample_rate=48000"
-        filters.append(f"{audio},atrim=duration={length:.3f},asetpts=PTS-STARTPTS[a{index}]")
+        filters.append(f"{audio},atrim=duration={length:.3f},asetpts=PTS-STARTPTS{audio_fade}[a{index}]")
         streams.append(f"[v{index}][a{index}]")
     filters.append("".join(streams) + f"concat=n={len(items)}:v=1:a=1[video][audio]")
     output = directory / "sequence.mp4"
