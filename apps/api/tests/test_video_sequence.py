@@ -120,3 +120,73 @@ def test_sequence_reopens_and_exports_saved_order(video_workspace, tmp_path):
             assert peak < original_peak * 0.25
     assert client.put(base, json={"version": 5, "clips": [faded[1]]}).json()["version"] == 6
     assert client.get(f"{base}/sources/{blue['source_id']}").status_code == 404
+
+
+def test_social_presets_framing_timed_title_and_captions(video_workspace, tmp_path):
+    tools = renderer_tools()
+    if not tools:
+        pytest.skip("Requires FFmpeg and FFprobe.")
+    ffmpeg, ffprobe = tools
+    client = video_workspace
+    base = "/api/v1/projects/1/video/sequence"
+    source = tmp_path / "red.mp4"
+    subprocess.run([
+        ffmpeg, "-v", "error", "-f", "lavfi", "-i", "color=red:s=160x120:r=30:d=2",
+        "-c:v", "libx264", "-threads", "2", str(source),
+    ], check=True, timeout=15)
+    for version in range(2):
+        assert client.post(f"{base}/sources?version={version}", content=source.read_bytes(),
+                           headers={"Content-Type": "video/mp4", "X-Video-Filename": f"red-{version}.mp4"}).status_code == 201
+    first, second = client.get(base).json()["clips"]
+    for invalid in ({"framing": "stretch"}, {"title_position": "center"}, {"title_duration_ms": -1},
+                    {"caption": "a\nb"}, {"caption": "a" * 91}):
+        assert client.put(base, json={"version": 2, "clips": [{**first, **invalid}, second]}).status_code == 422
+    assert client.get(f"{base}/captions.srt?version=2").status_code == 422
+    cuts = [{**first, "start_ms": 250, "end_ms": 1500},
+            {**second, "framing": "fill", "title": "Zamara", "title_position": "top",
+             "title_duration_ms": 500, "caption": "River & beacon <demo>", "end_ms": 1500}]
+    saved = client.put(base, json={"version": 2, "clips": cuts})
+    assert saved.status_code == 200, saved.text
+    assert client.get(base).json()["clips"] == cuts
+    assert client.get(f"{base}/captions.srt?version=2").status_code == 409
+    client.cookies.set("indaverse_access_token", "2")
+    assert client.get(f"{base}/captions.srt?version=3").status_code == 404
+    client.cookies.set("indaverse_access_token", "1")
+    srt = client.get(f"{base}/captions.srt?version=3")
+    assert srt.status_code == 200, srt.text
+    assert srt.headers["cache-control"] == "no-store"
+    assert "indaverse-1-captions.srt" in srt.headers["content-disposition"]
+    assert srt.text == "1\n00:00:01,250 --> 00:00:02,750\nRiver &amp; beacon &lt;demo&gt;\n"
+    assert client.post(f"{base}/render?version=3&preset=large").status_code == 422
+
+    output = tmp_path / "social.mp4"
+
+    def render(preset, size, burn):
+        response = client.post(f"{base}/render?version=3&preset={preset}&burn_captions={str(burn).lower()}")
+        assert response.status_code == 200, response.text
+        output.write_bytes(response.content)
+        info = json.loads(subprocess.check_output([
+            ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries",
+            "stream=width,height:format=duration", "-of", "json", str(output),
+        ], timeout=10))
+        assert (info["streams"][0]["width"], info["streams"][0]["height"]) == size
+        assert float(info["format"]["duration"]) == pytest.approx(2.75, abs=0.09)
+
+    def pixels(time, crop):
+        return subprocess.check_output([
+            ffmpeg, "-v", "error", "-ss", time, "-i", str(output), "-frames:v", "1",
+            "-vf", f"crop={crop}", "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
+        ], timeout=10)
+
+    def white_count(time, crop):
+        return sum(min(pixel) > 200 for pixel in struct.iter_unpack("BBB", pixels(time, crop)))
+
+    render("square", (480, 480), False)
+    assert white_count("2", "400:92:40:380") == 0
+    render("vertical", (360, 640), True)
+    assert max(pixels("0.5", "2:2:180:94")) < 15  # Fit letterboxes.
+    assert pixels("2", "2:2:180:94")[0] > 200  # Fill crops and reaches the edge.
+    assert white_count("1.5", "320:64:20:12") > 40
+    assert white_count("2", "320:64:20:12") == 0  # Title ends at 1.75.
+    assert white_count("0.6", "320:92:20:540") == 0
+    assert white_count("2", "320:92:20:540") > 60

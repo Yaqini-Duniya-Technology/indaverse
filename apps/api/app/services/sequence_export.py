@@ -1,5 +1,8 @@
 """Render an ordered sequence using the local clip export policy."""
+from html import escape
 from pathlib import Path
+from textwrap import wrap
+from typing import Literal
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -12,25 +15,60 @@ MIN_SEGMENT_MS = 500
 FADE_SECONDS = 0.25
 
 
-def title_card(path: Path, title: str) -> None:
-    canvas = Image.new("RGBA", (640, 360))
+Preset = Literal["landscape", "vertical", "square"]
+CANVASES: dict[Preset, tuple[int, int]] = {
+    "landscape": (640, 360),
+    "vertical": (360, 640),
+    "square": (480, 480),
+}
+
+
+def text_card(path: Path, text: str, size: tuple[int, int], position: str, *, caption=False) -> None:
+    width, height = size
+    canvas = Image.new("RGBA", size)
     draw = ImageDraw.Draw(canvas)
-    for size in range(27, 9, -1):
-        font = ImageFont.load_default(size=size)
-        left, top, right, bottom = draw.textbbox((0, 0), title, font=font)
-        if right - left <= 552:
+    lines = "\n".join(wrap(text, width=30)) if caption else text
+    limit = width - 64
+    for font_size in range(27 if not caption else 23, 8, -1):
+        font = ImageFont.load_default(size=font_size)
+        left, top, right, bottom = draw.multiline_textbbox((0, 0), lines, font=font, align="center")
+        if right - left <= limit:
             break
-    width, height = right - left, bottom - top
-    if width > 552:
-        raise ClipError("The title is too wide. Use shorter text.")
-    x, y = (640 - width) // 2, 318 - height // 2
-    draw.rounded_rectangle((x - 14, y - 8, x + width + 14, y + height + 8),
+    if right - left > limit:
+        raise ClipError("The clip text is too wide. Use shorter text.")
+    w, h = right - left, bottom - top
+    x = (width - w) // 2
+    y = {"top": 26, "bottom": height - 42 - h,
+         "above-caption": height - 150 - h, "caption": height - 24 - h}[position]
+    draw.rounded_rectangle((x - 14, y - 8, x + w + 14, y + h + 8),
                            radius=8, fill=(0, 0, 0, 206))
-    draw.text((x - left, y - top), title, font=font, fill="white")
+    draw.multiline_text((x - left, y - top), lines, font=font, fill="white", align="center")
     canvas.save(path)
 
 
-def render(tools: tuple[str, str], directory: Path, items: list[tuple[dict, bytes]]) -> bytes:
+def srt_timestamp(milliseconds: int) -> str:
+    seconds, ms = divmod(milliseconds, 1000)
+    minutes, second = divmod(seconds, 60)
+    hour, minute = divmod(minutes, 60)
+    return f"{hour:02d}:{minute:02d}:{second:02d},{ms:03d}"
+
+
+def captions_srt(cuts: list[dict]) -> bytes:
+    cues = []
+    start = 0
+    for cut in cuts:
+        end = start + cut["end_ms"] - cut["start_ms"]
+        if text := cut.get("caption"):
+            cues.append(
+                f"{len(cues) + 1}\n{srt_timestamp(start)} --> {srt_timestamp(end)}\n{escape(text, quote=False)}\n"
+            )
+        start = end
+    return "\n".join(cues).encode("utf-8")
+
+
+def render(tools: tuple[str, str], directory: Path, items: list[tuple[dict, bytes]],
+           *, preset: Preset = "landscape", burn_captions: bool = False) -> bytes:
+    width, height = CANVASES[preset]
     ffmpeg, ffprobe = tools
     inputs, overlays, filters, streams = [], [], [], []
     expected = 0
@@ -45,26 +83,39 @@ def render(tools: tuple[str, str], directory: Path, items: list[tuple[dict, byte
         expected += length
         inputs.extend(["-threads", "2", *INPUT_FLAGS, "-ss", f"{start:.3f}",
                        "-t", f"{length:.3f}", "-i", str(path)])
-        filters.append(
-            f"[{index}:v:0]setpts=PTS-STARTPTS,"
-            "scale=640:360:force_original_aspect_ratio=decrease:force_divisible_by=2,"
-            f"pad=640:360:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p[base{index}]"
-        )
-        if title := cut.get("title"):
-            card = directory / f"title-{index}.png"
-            title_card(card, title)
+        framing = (f"scale={width}:{height}:force_original_aspect_ratio=increase:force_divisible_by=2,"
+                   f"crop={width}:{height}" if cut.get("framing") == "fill" else
+                   f"scale={width}:{height}:force_original_aspect_ratio=decrease:force_divisible_by=2,"
+                   f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2")
+        picture = f"base{index}"
+        filters.append(f"[{index}:v:0]setpts=PTS-STARTPTS,{framing},setsar=1,fps=30,format=yuv420p[{picture}]")
+        caption = cut.get("caption") if burn_captions else None
+        title_position = cut.get("title_position", "bottom")
+        if caption and title_position == "bottom":
+            title_position = "above-caption"
+        for kind, text, position, until in (
+            ("title", cut.get("title"), title_position, cut.get("title_duration_ms", 0)),
+            ("caption", caption, "caption", 0),
+        ):
+            if not text:
+                continue
+            card = directory / f"{kind}-{index}.png"
+            text_card(card, text, (width, height), position, caption=kind == "caption")
             overlay_index = len(items) + len(overlays)
             overlays.append(["-threads", "1", "-protocol_whitelist", "file",
                              "-f", "image2", "-pattern_type", "none", "-c:v", "png", "-i", str(card)])
-            filters.append(f"[base{index}][{overlay_index}:v]overlay=eof_action=repeat,format=yuv420p[picture{index}]")
-        else:
-            filters.append(f"[base{index}]null[picture{index}]")
+            enable = f":enable='lt(t,{until / 1000:.3f})'" if until else ""
+            target = f"{kind}{index}"
+            filters.append(
+                f"[{picture}][{overlay_index}:v]overlay=eof_action=repeat{enable},format=yuv420p[{target}]"
+            )
+            picture = target
         video_fade = audio_fade = ""
         if cut.get("fade_edges", False):
             fade_out = length - FADE_SECONDS
             video_fade = f",fade=t=in:st=0:d={FADE_SECONDS},fade=t=out:st={fade_out:.3f}:d={FADE_SECONDS}"
             audio_fade = f",afade=t=in:st=0:d={FADE_SECONDS},afade=t=out:st={fade_out:.3f}:d={FADE_SECONDS}"
-        filters.append(f"[picture{index}]null{video_fade}[v{index}]")
+        filters.append(f"[{picture}]null{video_fade}[v{index}]")
         volume = cut.get("volume_percent", 100)
         if has_audio and not cut.get("muted", False) and volume > 0:
             audio = (f"[{index}:a:0]asetpts=PTS-STARTPTS,aresample=48000,"
