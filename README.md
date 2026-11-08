@@ -190,6 +190,7 @@ The latest milestone adds a categorized Help Centre, illustrated studio cards, p
 - [Milestone details and verification limits](docs/RELIABLE-DEMO-MILESTONE.md)
 - [Demonstration walkthrough and screenshot](docs/DEMO.md)
 - [Local operational setup and backup guidance](docs/OPERATIONS.md)
+- [Creator Studios release candidate and verification guide](docs/CREATOR-STUDIOS-RELEASE.md)
 
 Run `scripts/Setup-Local.ps1` for first-time Windows setup. Keep `.env`, uploaded media and database backups outside Git. Development uses `.next-dev`; release builds use `.next`; isolated browser checks use `.next-e2e`.
 
