@@ -75,3 +75,32 @@ def save_software(
     except Exception:
         db.rollback()
         raise
+
+
+def export_draft(db, project_id, user_id, version):
+    owned_software_project(db, project_id, user_id)
+    draft = db.get(SoftwareProject, project_id)
+    if draft is None or draft.version != version:
+        raise HTTPException(409, "Load the latest saved blueprint before exporting.")
+    if draft.platform == "mobile":
+        raise HTTPException(422, "Static export requires a web or web and mobile blueprint.")
+    return draft
+
+
+@router.get("/site-check")
+def check_site(project_id: int, version: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.services.static_site import validate_pages
+
+    return {"issues": validate_pages(export_draft(db, project_id, user.id, version).pages)}
+
+
+@router.get("/site.zip")
+def export_site(project_id: int, version: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.services.export_response import private_download
+    from app.services.static_site import build_site, validate_pages
+
+    draft = export_draft(db, project_id, user.id, version)
+    issues = validate_pages(draft.pages)
+    if issues:
+        raise HTTPException(422, issues[0])
+    return private_download(build_site(draft), media_type="application/zip", filename=f"indaverse-site-v{version}.zip")

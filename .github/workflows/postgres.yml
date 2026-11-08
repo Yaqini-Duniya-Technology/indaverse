@@ -1,0 +1,32 @@
+name: PostgreSQL save concurrency
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  concurrent-save:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: isolated-ci-only
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r apps/api/requirements.txt
+      - run: python scripts/test_postgres.py
+        env:
+          INDAVERSE_PG_TEST_ADMIN_URL: postgresql://postgres:isolated-ci-only@127.0.0.1:55432/postgres
+      - name: Restore, migrate, and roll back a synthetic release backup
+        run: python scripts/test_postgres_migrations.py
+        env:
+          INDAVERSE_PG_TEST_ADMIN_URL: postgresql://postgres:isolated-ci-only@127.0.0.1:55432/postgres
+          INDAVERSE_PG_TEST_CONTAINER: ${{ job.services.postgres.id }}

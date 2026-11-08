@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -9,6 +10,9 @@ class StoryChapter(BaseModel):
     id: str = Field(min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$")
     title: str = Field(min_length=1, max_length=150)
     content: str = Field(default="", max_length=100000)
+
+    status: Literal["outline", "draft", "revising", "complete"] | None = Field(default=None, exclude_if=lambda value: value is None)
+    target_words: int | None = Field(default=None, ge=1, le=100000, strict=True, exclude_if=lambda value: value is None)
 
     @field_validator("title", mode="before")
     @classmethod

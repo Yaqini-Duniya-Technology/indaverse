@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { ApiError } from "@/lib/api";
 import {
-  defaultLayout, getPlaySettings, savePlaySettings, type PlayLayout,
+  defaultLayout, sprintLayout, getPlaySettings, savePlaySettings, type PlayLayout,
 } from "@/lib/gamePlay";
 import { getGame } from "@/lib/game";
 import styles from "../game.module.css";
@@ -217,6 +217,15 @@ function Editor({ projectId }: { projectId: number }) {
         <button className={styles.primary} disabled={saving || (!dirty && version > 0)}
           onClick={() => void save()}>{saving ? "Saving..." : "Save layout"}</button>
       </div>
+      <fieldset className={styles.panel} disabled={saving}>
+        <legend>2D layout templates</legend>
+        <button className={styles.secondary} type="button" onClick={() => {
+          if (!dirty || window.confirm("Replace unsaved layout edits with this template?")) change(defaultLayout());
+        }}>Use Platform steps</button>{" "}
+        <button className={styles.secondary} type="button" onClick={() => {
+          if (!dirty || window.confirm("Replace unsaved layout edits with this template?")) change(sprintLayout());
+        }}>Use Ground sprint</button>
+      </fieldset>
       <LayoutCanvas layout={layout} disabled={saving} onChange={change}
         onGestureStart={beginGesture} onGestureEnd={endGesture} />
       <fieldset className={styles.editor} disabled={saving}>

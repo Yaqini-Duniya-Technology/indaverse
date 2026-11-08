@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import CreativeAssetLibrary from "@/components/CreativeAssetLibrary";
 import DemoProject from "@/components/DemoProject";
 import StudioArtwork from "@/components/StudioArtwork";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -77,6 +78,7 @@ export default function DashboardPage() {
   const [retry, setRetry] = useState(0);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [archiveView, setArchiveView] = useState("active");
   const [sort, setSort] = useState("updated");
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
@@ -179,7 +181,8 @@ export default function DashboardPage() {
     const matchesType = filter === "all" || project.project_type === filter;
     const matchesSearch = `${project.name} ${project.description ?? ""}`
       .toLowerCase().includes(query);
-    return matchesType && matchesSearch;
+    return matchesType && matchesSearch &&
+      (archiveView === "all" || Boolean(project.archived_at) === (archiveView === "archived"));
   }).sort((a, b) => {
     if (sort === "name") return a.name.localeCompare(b.name) || a.id - b.id;
     const key = sort === "created" ? "created_at" : "updated_at";
@@ -344,10 +347,13 @@ export default function DashboardPage() {
           </div>
 
           <div className="mb-5 flex flex-wrap items-center gap-4 text-sm">
+            <label>Project status <select className="ml-2 rounded-lg border border-zinc-600 bg-zinc-950 p-2" value={archiveView} onChange={event => setArchiveView(event.target.value)}>
+              <option value="active">Active</option><option value="archived">Archived</option><option value="all">All statuses</option>
+            </select></label>
             <label>Sort projects <select className="ml-2 rounded-lg border border-zinc-600 bg-zinc-950 p-2" value={sort} onChange={event => setSort(event.target.value)}>
               <option value="updated">Recently updated</option><option value="created">Recently created</option><option value="name">Name A–Z</option>
             </select></label>
-            <button type="button" className={styles.secondary} onClick={() => { setSearch(""); setFilter("all"); setSort("updated"); }}>Clear filters</button>
+            <button type="button" className={styles.secondary} onClick={() => { setSearch(""); setFilter("all"); setArchiveView("active"); setSort("updated"); }}>Clear filters</button>
             <button type="button" className={styles.secondary} disabled={creating || signingOut} onClick={() => setRetry(value => value + 1)}>Refresh projects</button>
             <span role="status">Showing {visible.length} of {projects.length} projects</span>
           </div>
@@ -356,7 +362,7 @@ export default function DashboardPage() {
           ) : visible.length === 0 ? (
             <div className={styles.empty}>
               <h3>{projects.length === 0 ? "Your next creation starts here." : "No matching projects."}</h3>
-              <p>{projects.length === 0 ? "Create your first project to open a studio." : "Try another search or project type."}</p>
+              <p>{projects.length === 0 ? "Create your first project to open a studio." : "Try another search, project type or status."}</p>
               {projects.length === 0 && <button className={styles.primary} onClick={() => openCreate()}>Create your first project</button>}
             </div>
           ) : (
@@ -367,7 +373,7 @@ export default function DashboardPage() {
                   <article key={project.id} className={styles.project}>
                     <div className={styles.cardTop}>
                       <span className={styles.type}>{typeLabel(project.project_type)}</span>
-                      <span className={styles.visibility}>{project.visibility}</span>
+                      <span className={styles.visibility}>{project.archived_at ? "Archived" : project.visibility}</span>
                     </div>
                     <h3>{project.name}</h3>
                     <p>{project.description || "Open this project to develop your creative direction."}</p>
@@ -383,6 +389,7 @@ export default function DashboardPage() {
             </div>
           )}
         </section>
+        <CreativeAssetLibrary projects={projects} />
         <footer className={styles.footer}>IndaVerse / A creative platform in development by Yaqini &amp; Duniya Technology.</footer>
       </main>
     </div>

@@ -117,3 +117,18 @@ app.include_router(studio_draft_imports_router, prefix="/api/v1")
 
 from app.api.v1.demo_projects import router as demo_projects_router
 app.include_router(demo_projects_router, prefix="/api/v1")
+
+from app.api.v1.creative_workspace import router as creative_workspace_router
+app.include_router(creative_workspace_router, prefix="/api/v1")
+
+from app.api.v1.video_clip_export import router as video_clip_export_router
+app.include_router(video_clip_export_router, prefix="/api/v1")
+
+from app.api.v1.video_sequence import router as video_sequence_router
+app.include_router(video_sequence_router, prefix="/api/v1")
+
+from app.api.v1.music_session import router as music_session_router
+app.include_router(music_session_router, prefix="/api/v1")
+
+from app.api.v1.creator_delivery import router as creator_delivery_router
+app.include_router(creator_delivery_router, prefix="/api/v1")

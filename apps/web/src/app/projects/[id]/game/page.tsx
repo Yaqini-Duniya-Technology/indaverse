@@ -434,7 +434,7 @@ function GameEditor({ projectId }: { projectId: number }) {
                 ]} />
             </fieldset>
             <GameHistory key={`history:${projectId}:${version}`}
-              projectId={projectId} savedVersion={version}
+              projectId={projectId} savedVersion={version} currentDraft={data}
               disabled={saving} onRestore={restoreRevision} />
             <p className={styles.footnote}>
               Play opens the saved blueprint. Save dimension changes before testing them.

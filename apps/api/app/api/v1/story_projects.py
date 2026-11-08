@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -69,6 +71,24 @@ def save_story(
     except Exception:
         db.rollback()
         raise
+
+@router.get("/manuscript/{format}")
+def export_manuscript(project_id: int, format: Literal["html", "epub"], version: int,
+                      user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.services.export_response import private_download
+    from app.services.manuscript_export import manuscript_epub, manuscript_html
+
+    story = get_story(project_id, user, db)
+    if story.version != version:
+        raise HTTPException(409, "The saved story changed. Reload before exporting.")
+    if format == "html":
+        content = manuscript_html(story.title, story.synopsis, story.chapters)
+        media_type = "text/html; charset=utf-8"
+    else:
+        content = manuscript_epub(project_id, story.version, story.title, story.synopsis, story.chapters)
+        media_type = "application/epub+zip"
+    return private_download(content, media_type=media_type, filename=f"indaverse-manuscript-v{version}.{format}")
+
 
 from app.api.v1.story_characters import router as story_characters_router
 

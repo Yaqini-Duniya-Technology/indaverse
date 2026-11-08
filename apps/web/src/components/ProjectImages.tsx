@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import ProjectImage from "./ProjectImage";
 import ImageDraftPreview from "./ImageDraftPreview";
+import ImageDerivativeEditor from "./ImageDerivativeEditor";
 import ImageDownload from "./ImageDownload";
 import ImageGenerationRequests from "./ImageGenerationRequests";
 import { getProject, type Project } from "@/lib/projects";
@@ -183,6 +184,11 @@ export default function ProjectImages({
                     {asset.category} / {asset.width} x {asset.height}
                   </p>
                   <ImageDownload projectId={projectId} imageId={asset.id} />
+                  <ImageDerivativeEditor asset={asset} onSaved={() => {
+                    setNotice("Edited copy saved to the image library.");
+                    setOffset(0); setSearch(""); setSearchInput(""); setFilterCategory(""); setSort("newest");
+                    setRetry(value => value + 1);
+                  }} />
                   <button type="button" className={button}
                     disabled={busy || !project || project.cover_image_id === asset.id}
                     onClick={() => void cover(asset.id)}>

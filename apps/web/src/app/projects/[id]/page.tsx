@@ -9,6 +9,7 @@ import { getProject, type Project, type ProjectType } from "@/lib/projects";
 import ProjectDetailsEditor from "./ProjectDetailsEditor";
 import ProjectPlanEditor from "./ProjectPlanEditor";
 
+import CreativeWorkspace from "@/components/CreativeWorkspace";
 import ProjectImages from "@/components/ProjectImages";
 import ProjectImage from "@/components/ProjectImage";
 import styles from "./workspace.module.css";
@@ -192,6 +193,10 @@ function Workspace({ projectId }: { projectId: number }) {
             <h2>Images &amp; cover <span aria-hidden="true">?</span></h2>
             <p>Upload reference images, choose a cover and manage image requests.</p>
           </a>
+          <Link href={`/projects/${project.id}/campaign`} className={styles.shortcut}>
+            <h2>Campaign Studio</h2>
+            <p>Plan posts, schedule locally, and export a publishing handoff.</p>
+          </Link>
           <a href="#project-plan" className={styles.shortcut}>
             <span className={styles.symbol} aria-hidden="true">?</span>
             <h2>Plan &amp; review <span aria-hidden="true">?</span></h2>
@@ -200,7 +205,9 @@ function Workspace({ projectId }: { projectId: number }) {
         </section>
 
         <ProjectDetailsEditor project={project} onSaved={detailsSaved} />
-
+        <CreativeWorkspace key={project.id} project={project} onSaved={(updated) => setProject(current => current ? {
+          ...current, archived_at: updated.archived_at, updated_at: updated.updated_at,
+        } : updated)} />
 
         <section id="project-images" style={{ scrollMarginTop: 24 }}>
           <ProjectImages projectId={project.id} onCoverChanged={coverChanged} />

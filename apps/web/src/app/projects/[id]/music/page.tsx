@@ -1,4 +1,5 @@
 "use client";
+import MusicSessionEditor from "@/components/MusicSessionEditor";
 import StudioWorkbench from "@/components/StudioWorkbench";
 
 import GenerationHistory from "./GenerationHistory";
@@ -1545,6 +1546,8 @@ export default function MusicStudioPage() {
               </div>
             </div>
           </section>
+
+          <MusicSessionEditor key={projectId} projectId={projectId} assets={audioAssets} />
 
           {/* =================================================
               AUDIO LIBRARY

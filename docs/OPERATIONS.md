@@ -9,7 +9,7 @@ Run from the repository root:
 
 Setup preserves existing .env files. The test runner replaces connection
 settings only in its own process; it does not migrate or modify the application DB.
-Stop the web dev process before a production build to avoid concurrent .next writes.
+Development and production use separate generated folders. Stop an existing production server before rebuilding it. See PHASE2-STAGE-A.md for managed startup/stop and restore drills.
 
 ## Health
 

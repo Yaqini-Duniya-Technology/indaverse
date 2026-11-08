@@ -8,6 +8,9 @@ export const workspaceGuides = {
     field('Project name', 'A short label used on your dashboard; studio drafts can have their own titles.', 'Legends of Zamara — first playable test'),
     field('Project type', 'Choose the studio you intend to use. Website and App both use Web & App Studio.', 'Story / novel for chapter-based writing.'),
     field('Search and sort', 'Search name or description, filter by type, and sort the currently loaded project list.', 'Search Zamara, filter Games, choose Recently updated.'),
+    field('Archive or duplicate', 'Open a project to archive it or copy its saved draft. Archived projects remain editable. Copies start private and exclude media, plans, and previous revisions.', 'Duplicate a saved Zamara draft before trying a new design. Find archived projects using Project status on the dashboard.'),
+    field('My asset library', 'Browse images and audio you own. Copy supported images after confirming permission to reuse them; open the source project for audio.', 'Copy a reference image from a Story project to a Game project. Link the new image from the Game editor.'),
+    field('Creation modes and request history', 'Use the manual editors for production work. AI and integrated Hybrid generation are unavailable; generation history shows recorded image and music requests.', 'Open a project and choose Load generation history to check whether a previous request was unavailable.'),
   ]},
   brief: { title: 'Write a useful creative brief', intro: 'The brief captures direction. Changing it can make an existing project plan stale; it does not rewrite your studio drafts.', fields: [
     field('Creative goal', 'Describe the result and what success would look like.', 'Create a three-level exploration prototype where a player restores a village beacon.'),
@@ -33,6 +36,11 @@ export const workspaceGuides = {
     field('Reading preview', 'The reader shows saved chapters, not your unsaved editor text.', 'Save Story, then open Preview saved story.'),
   ]},
   video: { title: 'Plan a video shot by shot', intro: 'The video studio stores a script and storyboard. The planned shot schedule is not a rendered movie.', fields: [
+    field('Saved clip sequence', 'Save up to four short MP4 sources, trim using the source playhead, reorder cuts, and add titles or captions. Render landscape, vertical, or square MP4, or download captions as SRT or WebVTT.', 'Put a one-second intro before your captioned clip, save, then export a vertical video and an SRT subtitle file.'),
+    field('Timed captions', 'Add multiple cues inside a trimmed cut or import a cut-relative SRT. Reordering clips updates the timing in the exported video and subtitle files.', 'Add a cue from 0.25 to 1.25 seconds within a clip, place it at the top, and check its new time in the video after reordering.'),
+    field('Publishing kit', 'Bundle the saved MP4, poster, edit timing, and selected subtitles for handoff. Preparing a kit does not post it online.', 'Pick the frame just after the opening title as your poster, then include WebVTT for a player that accepts it.'),
+    field('Soundtrack', 'Attach a private MP3 or PCM WAV, trim it, place it on the video timeline, and mix it with the clip audio or replace it. Save before rendering.', 'Start your music one second after the intro begins, set the volume to 35%, and add a half-second fade in.'),
+    field('Trim and export an MP4', 'With local export enabled, choose an H.264 MP4 under 32 MB and no longer than 120 seconds. Select a 0.5–30-second range, then render and download it. The source and storyboard stay unchanged.', 'Choose a 12-second video, set Start to 2 and End to 7, then export a five-second MP4.'),
     field('Aspect ratio', 'Choose the intended framing for the video.', '16:9 landscape, 9:16 portrait, or 1:1 square.'),
     field('Script', 'Write the narrative or spoken content. Shot durations are entered separately.', 'Opening narration introduces the village and its dry fountain.'),
     field('Shot and camera direction', 'Describe what the viewer sees and how it is framed or moves.', 'Wide shot of the village at dawn; slow push toward the fountain.'),

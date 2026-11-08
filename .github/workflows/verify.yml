@@ -15,8 +15,10 @@ jobs:
           python-version: '3.13'
           cache: pip
           cache-dependency-path: apps/api/requirements.txt
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: pip install -r apps/api/requirements.txt
       - run: python scripts/test_api.py
+      - run: python -m pytest tests/operations -q
       - run: python scripts/check_repository.py
   web:
     runs-on: ubuntu-latest
@@ -29,6 +31,8 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - run: npm --prefix apps/web ci
       - run: npm --prefix apps/web test
+      - run: npx eslint src/app/status/page.tsx src/components/SnapshotCompare.tsx src/lib/snapshot-diff.mjs
+        working-directory: apps/web
       - run: npm --prefix apps/web run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8002

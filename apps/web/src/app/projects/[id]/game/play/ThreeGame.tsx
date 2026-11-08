@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import PlaytestDelivery from "@/components/PlaytestDelivery";
 import * as THREE from "three";
 import type { GameProject } from "@/lib/game";
 import type { SceneLayout } from "@/lib/gameScene";
@@ -8,14 +9,14 @@ import styles from "./play.module.css";
 
 type World = {
   x: number; y: number; z: number; vy: number;
-  grounded: boolean; gems: boolean[]; won: boolean;
+  grounded: boolean; gems: boolean[]; won: boolean; checkpointReached: boolean;
 };
 
 function initial(layout: SceneLayout): World {
   return {
     x: layout.spawn.x, y: layout.spawn.y, z: layout.spawn.z,
     vy: 0, grounded: true,
-    gems: layout.collectibles.map(() => false), won: false,
+    gems: layout.collectibles.map(() => false), won: false, checkpointReached: false,
   };
 }
 
@@ -36,6 +37,7 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
   const surfaces = layout.platforms;
   const collectibles = layout.collectibles;
   const exit = layout.exit;
+  const goal = layout.required_gems ?? collectibles.length;
   const canvas = useRef<HTMLCanvasElement>(null);
   const world = useRef<World>(initial(layout));
   const keys = useRef(new Map<string, string>());
@@ -46,6 +48,11 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
   const [error, setError] = useState("");
   const [status, setStatus] = useState<"ready" | "playing" | "paused" | "won">("ready");
   const [count, setCount] = useState(0);
+  const [checkpointActive, setCheckpointActive] = useState(false);
+
+  const [falls, setFalls] = useState(0);
+  const [resets, setResets] = useState(0);
+  const [started, setStarted] = useState(false);
 
   function clearInput() {
     keys.current.clear();
@@ -65,6 +72,7 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
     canvas.current?.focus();
     running.current = true;
     setStatus("playing");
+    setStarted(true);
   }
 
   function restart() {
@@ -72,6 +80,8 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
     clearInput();
     world.current = initial(layout);
     setCount(0);
+    if (started) setResets(value => Math.min(10000, value + 1));
+    setCheckpointActive(false);
     setStatus("ready");
   }
 
@@ -157,6 +167,14 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
     gate.add(beam);
     gate.position.set(exit.x, exit.y, exit.z);
     scene.add(gate);
+    const checkpoint = layout.checkpoint;
+    if (checkpoint) {
+      const marker = new THREE.Mesh(new THREE.RingGeometry(0.47, 0.62, 24),
+        new THREE.MeshBasicMaterial({color: 0x43d9ff, side: THREE.DoubleSide}));
+      marker.rotation.x = -Math.PI / 2;
+      marker.position.set(checkpoint.x, checkpoint.y + 0.02, checkpoint.z);
+      scene.add(marker);
+    }
 
     let frame = 0;
     let last = 0;
@@ -205,10 +223,18 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
         }
       }
 
+      if (checkpoint && !state.checkpointReached && state.grounded && Math.abs(state.y - checkpoint.y) < 0.08 &&
+          Math.hypot(state.x - checkpoint.x, state.z - checkpoint.z) < 0.62) {
+        state.checkpointReached = true;
+        setCheckpointActive(true);
+      }
+
       if (state.y < -5) {
-        state.x = layout.spawn.x;
-        state.y = layout.spawn.y;
-        state.z = layout.spawn.z;
+        setFalls(value => Math.min(10000, value + 1));
+        const respawn = state.checkpointReached && checkpoint ? checkpoint : layout.spawn;
+        state.x = respawn.x;
+        state.y = respawn.y;
+        state.z = respawn.z;
         state.vy = 0;
         state.grounded = true;
         return;
@@ -222,7 +248,7 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
         }
       });
 
-      if (state.gems.every(Boolean) &&
+      if (state.gems.filter(Boolean).length >= (layout.required_gems ?? collectibles.length) &&
           Math.abs(state.x - exit.x) < 0.85 &&
           Math.abs(state.z - exit.z) < 0.65 &&
           state.y < exit.y + 1 && state.y >= exit.y - 0.05) {
@@ -355,15 +381,16 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
       <button disabled={!ready || status !== "playing"} onClick={pause}>Pause</button>
       <button disabled={!ready} onClick={restart}>Restart</button>
       <span role="status">{status === "won"
-        ? "Completed! All gems collected and exit reached."
+        ? goal === collectibles.length ? "Completed! All gems collected and exit reached." : "Completed! Gem objective met and exit reached."
         : `${status} / Gems ${count} of ${collectibles.length}`}</span>
     </div>
 
+    {checkpointActive && <p role="status">Checkpoint reached</p>}
     <p id="three-instructions">
-      Collect every gold gem, then enter the exit gate.
+      {goal === collectibles.length ? "Collect every gold gem, then enter the exit gate." : `Collect ${goal} gems, then enter the exit gate.`}
       Move with WASD or arrow keys. W moves toward the distant islands.
       Space jumps; Escape pauses. Jump across water gaps and onto the raised platform.
-      Falling returns you to the saved spawn and keeps collected gems.
+      {layout.checkpoint ? "The blue ring is a checkpoint. Falling keeps collected gems." : "Falling returns you to the saved spawn and keeps collected gems."}
     </p>
 
     <canvas ref={canvas} width={800} height={450} tabIndex={0}
@@ -423,6 +450,8 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
       ))}
     </div>
 
+    {sceneVersion > 0 && <PlaytestDelivery projectId={game.project_id} started={started}
+      snapshot={{scene_version: sceneVersion, gems: count, falls, resets, checkpoint: checkpointActive, completed: status === "won"}} />}
     <p>Progress lasts for this visit. Restart resets gems and position.
       Switching tabs pauses play. Platforms support landing from above.</p>
   </>;

@@ -37,6 +37,8 @@ class SceneLayout(SceneModel):
     exit: ScenePoint
     platforms: list[ScenePlatform] = Field(min_length=1, max_length=50)
     collectibles: list[SceneCollectible] = Field(min_length=1, max_length=50)
+    checkpoint: ScenePoint | None = Field(default=None, exclude_if=lambda value: value is None)
+    required_gems: int | None = Field(default=None, ge=0, le=50, strict=True, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def validate_scene(self):
@@ -63,6 +65,11 @@ class SceneLayout(SceneModel):
         if not supported(self.exit, 0.4):
             raise ValueError("Place the exit on a platform with room around it.")
 
+        if self.checkpoint is not None and not supported(self.checkpoint, 0.6):
+            raise ValueError("Place the checkpoint on a platform with space around its trigger.")
+        if self.required_gems is not None and self.required_gems > len(self.collectibles):
+            raise ValueError("The objective cannot require more gems than the scene contains.")
+
         # Platforms are solid boxes extending 0.6 units below their top.
         def intersects(point, radius, height):
             return any(
@@ -75,6 +82,8 @@ class SceneLayout(SceneModel):
 
         if intersects(self.spawn, 0.3, 1.1):
             raise ValueError("The player spawn cannot intersect another platform.")
+        if self.checkpoint is not None and intersects(self.checkpoint, 0.6, 1.1):
+            raise ValueError("The checkpoint trigger cannot intersect another platform.")
         if intersects(self.exit, 0.4, 2.3):
             raise ValueError("The exit cannot intersect another platform.")
 
