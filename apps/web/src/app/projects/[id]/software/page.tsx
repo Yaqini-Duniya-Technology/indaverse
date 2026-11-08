@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import StaticSiteDelivery from "@/components/StaticSiteDelivery";
 import StudioWorkbench from "@/components/StudioWorkbench";
 import DraftExchange from "@/components/DraftExchange";
 import { useEffect, useRef, useState } from "react";
@@ -299,6 +300,8 @@ function SoftwareEditor({ projectId }: { projectId: number }) {
                     }] });
                   }}>+ Add page</button>
                 </div>
+                <StaticSiteDelivery projectId={projectId} version={version} dirty={dirty} pages={data.pages}
+                  mobile={data.platform === "mobile"} onAdd={page => change({pages: [...data.pages, page]})} />
                 {data.pages.length === 0 && <p>No pages yet. Add your first page or screen.</p>}
                 {data.pages.map((page, index) => (
                   <article className={styles.card} key={page.id}>
@@ -322,8 +325,23 @@ function SoftwareEditor({ projectId }: { projectId: number }) {
                       <label>Page path<input maxLength={200} value={page.path}
                         onChange={(event) => updatePage(page.id, { path: event.target.value })} /></label>
                     </div>
+                    <details>
+                      <summary>Navigation and page metadata</summary>
+                      {([
+                        ["nav_label", "Navigation label (blank hides from menu)", 80],
+                        ["seo_title", "Page title", 150], ["seo_description", "Page description", 300],
+                        ["social_title", "Social preview title", 150], ["social_description", "Social preview description", 300],
+                      ] as const).map(([key, label, max]) => <label key={key}>{label}
+                        <input value={page[key] ?? ""} maxLength={max}
+                          onChange={event => updatePage(page.id, {[key]: event.target.value})} />
+                      </label>)}
+                    </details>
                     {page.sections.map((section, sectionIndex) => (
                       <div className={styles.section} key={section.id}>
+                        <label>Internal link target (optional)
+                          <input placeholder="/about" maxLength={200} value={section.link_path ?? ""}
+                            onChange={event => updateSection(page.id, section.id, {link_path: event.target.value})} />
+                        </label>
                         <div className={styles.heading}>
                           <h4>Section {sectionIndex + 1}</h4>
                           <div className={styles.actions}>

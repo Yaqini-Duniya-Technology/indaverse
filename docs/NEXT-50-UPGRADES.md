@@ -55,20 +55,22 @@ Items without a status label are planned. Hosted checks need a passing runner re
 36. **Implemented:** Export EPUB with a navigable table of contents.
 37. **Implemented:** Add Game Studio scene templates for 2D and 3D prototypes.
 38. **Implemented:** Edit a 3D checkpoint trigger and required gem count, with server-side validation and playable respawn behavior.
-39. Add a saved playtest report for objectives, resets and completion.
-40. Export a self-contained browser build for a supported Zamara scene.
+39. **Implemented:** Add a saved playtest report for objectives, resets and completion.
+40. **Implemented:** Export a self-contained Canvas browser build for a saved 3D scene, including Zamara.
 
-## 41–50: Web, image and promotion — planned
+## 41–50: Web, image and promotion
 
-41. Add Web Studio page templates and a shared navigation editor.
-42. Add page titles, descriptions, and social preview metadata.
-43. Validate internal links before export.
-44. Export a usable static site from a supported project blueprint.
-45. Crop, rotate and resize private images with an original preserved.
-46. Save image derivatives back into the shared asset library.
-47. Create a private campaign with draft posts linked to existing video and image assets.
-48. Add a campaign calendar with status and local scheduling notes; no automatic posting.
-49. Export a campaign handoff with copy, asset references and tracking parameters.
-50. Add a bounded, opt-in AI adapter pilot with mocked tests and explicit provider, quota and output review; real execution requires approved credentials and operating limits.
+41. **Implemented:** Add Web Studio page templates and a shared navigation editor.
+42. **Implemented:** Add page titles, descriptions, and social preview metadata.
+43. **Implemented:** Validate internal links before export.
+44. **Implemented:** Export a usable static site from a supported project blueprint.
+45. **Implemented:** Crop, rotate and resize private images with an original preserved.
+46. **Implemented:** Save image derivatives back into the shared asset library.
+47. **Implemented:** Create a private campaign with draft posts linked to existing video and image assets.
+48. **Implemented:** Add a campaign calendar with status and local scheduling notes; no automatic posting.
+49. **Implemented:** Export a campaign handoff with copy, asset references and tracking parameters.
+50. **Implemented:** Add an opt-in local adapter sandbox with mocked tests, a daily quota and explicit output review. Live AI provider execution remains disabled.
+
+See [Creator delivery](CREATOR-DELIVERY.md) for setup and workflow limits.
 
 For every stage, test artifacts independently, check account ownership, and record unresolved work before promoting a release.

@@ -7,12 +7,18 @@ export interface SoftwareSection {
   kind: SectionKind;
   heading: string;
   content: string;
+  link_path?: string;
 }
 
 export interface SoftwarePage {
   id: string;
   name: string;
   path: string;
+  nav_label?: string;
+  seo_title?: string;
+  seo_description?: string;
+  social_title?: string;
+  social_description?: string;
   sections: SoftwareSection[];
 }
 

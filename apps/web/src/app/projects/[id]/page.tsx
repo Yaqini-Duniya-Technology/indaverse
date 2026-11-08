@@ -193,6 +193,10 @@ function Workspace({ projectId }: { projectId: number }) {
             <h2>Images &amp; cover <span aria-hidden="true">?</span></h2>
             <p>Upload reference images, choose a cover and manage image requests.</p>
           </a>
+          <Link href={`/projects/${project.id}/campaign`} className={styles.shortcut}>
+            <h2>Campaign Studio</h2>
+            <p>Plan posts, schedule locally, and export a publishing handoff.</p>
+          </Link>
           <a href="#project-plan" className={styles.shortcut}>
             <span className={styles.symbol} aria-hidden="true">?</span>
             <h2>Plan &amp; review <span aria-hidden="true">?</span></h2>
