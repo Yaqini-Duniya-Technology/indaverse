@@ -123,6 +123,37 @@ test("save, reopen and export a vertical sequence with captions and a soundtrack
     const subtitlePath = join(folder, "captions.srt");
     await subtitle.saveAs(subtitlePath);
     expect(await readFile(subtitlePath, "utf8")).toBe("1\n00:00:01,000 --> 00:00:03,000\nFind the beacon.\n");
+    const captionEditors = editor.getByRole("group", {name: "Captions", exact: true});
+    await captionEditors.last().getByRole("button", {name: "Make caption timed"}).click();
+    await expect(captionEditors.last().getByRole("textbox", {name: "Caption text"})).toHaveValue("Find the beacon.");
+    await captionEditors.last().getByRole("spinbutton", {name: "Caption starts (seconds)"}).fill("0.25");
+    const legacyEnd = captionEditors.last().getByRole("spinbutton", {name: "Caption ends (seconds)"});
+    await expect(legacyEnd).toHaveValue("2");
+    await legacyEnd.fill("1");
+    await expect(captionEditors.last().getByText("In the video: 1.25–2 s")).toBeVisible();
+    await captionEditors.first().getByLabel("Import SRT for this cut").setInputFiles({
+      name: "intro.srt", mimeType: "application/x-subrip",
+      buffer: Buffer.from("1\n00:00:00,000 --> 00:00:00,400\nWelcome\nto Zamara\n\n2\n00:00:00,500 --> 00:00:00,900\nLook ahead"),
+    });
+    const introCue = captionEditors.first().getByRole("group", {name: "Caption 1", exact: true});
+    await expect(introCue.getByRole("textbox", {name: "Caption text"})).toHaveValue("Welcome\nto Zamara");
+    await introCue.getByRole("combobox", {name: "Caption position"}).selectOption("top");
+    const secondCue = captionEditors.first().getByRole("group", {name: "Caption 2", exact: true});
+    await secondCue.getByRole("spinbutton", {name: "Caption starts (seconds)"}).fill("0.3");
+    await expect(editor.getByText("Timed captions in the same clip cannot overlap.")).toBeVisible();
+    await expect(editor.getByRole("button", {name: "Save sequence"})).toBeDisabled();
+    await secondCue.getByRole("spinbutton", {name: "Caption starts (seconds)"}).fill("0.5");
+    await editor.getByRole("button", {name: "Save sequence"}).click();
+    await expect(editor.getByText("Sequence saved.")).toBeVisible();
+    await editor.getByRole("button", {name: "Prepare captions WebVTT"}).click();
+    const vttLink = editor.getByRole("link", {name: "Download captions WebVTT"});
+    await expect(vttLink).toHaveAttribute("download", `indaverse-${id}-captions.vtt`);
+    const vttContents = await vttLink.evaluate(async (link: HTMLAnchorElement) => (await fetch(link.href)).text());
+    expect(vttContents).toContain("00:00:00.000 --> 00:00:00.400 line:10%\nWelcome\nto Zamara");
+    await editor.getByRole("button", {name: "Render saved sequence"}).click();
+    const unburned = editor.getByLabel("Rendered sequence preview");
+    await expect.poll(() => unburned.evaluate((video: HTMLVideoElement) => video.textTracks[0]?.cues?.length)).toBe(3);
+
     const score = join(folder, "beacon.wav");
     execFileSync("ffmpeg", ["-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=2", score],
       {timeout: 15000});

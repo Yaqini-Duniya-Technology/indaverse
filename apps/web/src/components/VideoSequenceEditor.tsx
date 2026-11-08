@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiDownload, apiFetch } from "@/lib/api";
+import VideoCaptionEditor from "@/components/VideoCaptionEditor";
+import { MAX_CUES, validateCues, type CaptionCue } from "@/lib/video-captions.mjs";
 
 type Cut = { source_id: string; start_ms: number; end_ms: number; title?: string; muted?: boolean; volume_percent?: number; fade_edges?: boolean;
-  framing?: "fit" | "fill"; title_position?: "top" | "bottom"; title_duration_ms?: number; caption?: string };
+  framing?: "fit" | "fill"; title_position?: "top" | "bottom"; title_duration_ms?: number; caption?: string; caption_cues?: CaptionCue[] };
 type Preset = "landscape" | "vertical" | "square";
 type Source = { id: string; name: string; duration_ms: number };
 type SoundtrackSettings = {
@@ -34,19 +36,22 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ url: string; name: string }>();
+  const [result, setResult] = useState<{ url: string; name: string; vtt?: string }>();
   const [preset, setPreset] = useState<Preset>("landscape");
   const [burnCaptions, setBurnCaptions] = useState(false);
-  const [subtitleFile, setSubtitleFile] = useState<string>();
+  const [subtitleFile, setSubtitleFile] = useState<{url: string; type: "srt" | "vtt"}>();
   const [previewReady, setPreviewReady] = useState(false);
   const previewPlayer = useRef<HTMLVideoElement>(null);
   const pending = useRef<AbortController | null>(null);
   useEffect(() => () => pending.current?.abort(), []);
-  useEffect(() => () => { if (result) URL.revokeObjectURL(result.url); }, [result]);
+  useEffect(() => () => {
+    if (result) URL.revokeObjectURL(result.url);
+    if (result?.vtt) URL.revokeObjectURL(result.vtt);
+  }, [result]);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);
 
-  useEffect(() => () => { if (subtitleFile) URL.revokeObjectURL(subtitleFile); }, [subtitleFile]);
+  useEffect(() => () => { if (subtitleFile) URL.revokeObjectURL(subtitleFile.url); }, [subtitleFile]);
 
   useEffect(() => () => { if (soundtrackPreview) URL.revokeObjectURL(soundtrackPreview); }, [soundtrackPreview]);
 
@@ -122,12 +127,20 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
     [soundtrackSettings.fade_in_ms, soundtrackSettings.fade_out_ms].some(value =>
       !Number.isFinite(value) || value < 0 || value > Math.min(5000, trackLength))
   );
-  const hasCaptions = clips.some(cut => cut.caption?.trim());
+  const captionCount = clips.reduce((sum, cut) => sum + (cut.caption_cues?.length || Number(!!cut.caption?.trim())), 0);
+  const invalidCaptions = captionCount > MAX_CUES ||
+    clips.some(cut => !!validateCues(cut.caption_cues ?? [], cut.end_ms - cut.start_ms));
+  const hasCaptions = captionCount > 0;
   const timeline = clips.reduce<{start: number; end: number}[]>((ranges, cut) => {
     const start = ranges.at(-1)?.end ?? 0;
     ranges.push({start, end: start + cut.end_ms - cut.start_ms});
     return ranges;
   }, []);
+
+  function fetchSubtitles(type: "srt" | "vtt", signal: AbortSignal) {
+    const mime = type === "srt" ? "application/x-subrip" : "text/vtt; charset=utf-8";
+    return apiDownload(`${base}/captions.${type}?version=${saved?.version}`, undefined, "application/octet-stream", mime, signal);
+  }
 
   function move(index: number, to: number) {
     setClips(current => {
@@ -230,10 +243,6 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
                     <option value={cut.title_duration_ms}>First {seconds(cut.title_duration_ms)} seconds</option> : null}
                 </select>
               </label>
-              <label className="block min-w-0 max-w-full">Caption (optional, entire cut)
-                <input type="text" maxLength={90} className={`${control} block w-72 max-w-full`} disabled={busy}
-                  value={cut.caption ?? ""} onChange={event => update(cut.source_id, {caption: event.target.value})} />
-              </label>
               <label className="flex items-center gap-2 py-2">
                 <input type="checkbox" disabled={busy} checked={cut.muted ?? false} onChange={event => {
                   const muted = event.target.checked;
@@ -258,6 +267,9 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
                 Fade picture and audio (0.25 s at each end)
               </label>
             </div>
+            <VideoCaptionEditor caption={cut.caption ?? ""} cues={cut.caption_cues ?? []}
+              duration={cut.end_ms - cut.start_ms} offset={timeline[index].start} disabled={busy} control={control}
+              onChange={changes => update(cut.source_id, changes)} />
             <div className="flex flex-wrap gap-2">
               <button type="button" className={control} disabled={busy} onClick={() => void run(async signal => {
                 const file = await apiDownload(`${base}/sources/${cut.source_id}`, undefined, "application/octet-stream", "video/mp4", signal);
@@ -279,6 +291,7 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
         })}
       </ol>
       <p>Sequence: {Number.isFinite(total) ? `${seconds(total)} seconds` : "invalid duration"} · {dirty ? "Unsaved changes" : `Saved version ${saved.version}`}</p>
+      {captionCount > MAX_CUES && <p role="alert">Use no more than 16 captions across the sequence.</p>}
       {invalid && <p role="alert">Use cuts of at least 0.5 seconds within each source and a total of at most 30 seconds.</p>}
       <fieldset className="space-y-3 rounded border border-zinc-700 p-3" disabled={busy}>
         <legend className="px-1 font-semibold">Soundtrack</legend>
@@ -371,10 +384,10 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
             onChange={event => { setBurnCaptions(event.target.checked); setResult(undefined); }} />
           Show captions in the video
         </label>
-        <p className="text-sm text-zinc-300">These choices apply to the next render. SRT is a separate subtitle file.</p>
+        <p className="text-sm text-zinc-300">These choices apply to the next render. SRT and WebVTT are separate subtitle files. The unburned preview has a captions track when available.</p>
       </fieldset>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={control} disabled={busy || !dirty || invalid || invalidTrack} onClick={() => {
+        <button type="button" className={control} disabled={busy || !dirty || invalid || invalidTrack || invalidCaptions} onClick={() => {
           if (clips.length < saved.clips.length && !window.confirm("Remove the selected clips and their saved source files?")) return;
           void run(async signal => {
             install(await apiFetch<Sequence>(base, {method: "PUT", body: {version: saved.version, clips, soundtrack_settings: soundtrackDirty ? soundtrackSettings : undefined}, signal}));
@@ -385,14 +398,18 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
           disabled={busy || dirty || invalid || !clips.length || !saved.renderer_available}
           onClick={() => void run(async signal => {
             const file = await apiDownload(`${base}/render?version=${saved.version}&preset=${preset}&burn_captions=${hasCaptions && burnCaptions}`, new Blob(), "application/octet-stream", "video/mp4", signal);
-            if (!signal.aborted) setResult({url: URL.createObjectURL(file), name: `indaverse-${projectId}-sequence.mp4`});
+            const vtt = hasCaptions && !burnCaptions ? await fetchSubtitles("vtt", signal) : undefined;
+            if (!signal.aborted) setResult({url: URL.createObjectURL(file), name: `indaverse-${projectId}-sequence.mp4`,
+              vtt: vtt ? URL.createObjectURL(vtt) : undefined});
           })}>Render saved sequence</button>
-        <button type="button" className={control} disabled={busy || dirty || !hasCaptions}
-          onClick={() => void run(async signal => {
-            const file = await apiDownload(`${base}/captions.srt?version=${saved.version}`, undefined, "application/x-subrip", "application/x-subrip", signal);
-            if (!signal.aborted) setSubtitleFile(URL.createObjectURL(file));
-          })}>Prepare captions SRT</button>
-        {subtitleFile && <a className={control} href={subtitleFile} download={`indaverse-${projectId}-captions.srt`}>Download captions SRT</a>}
+        {(["srt", "vtt"] as const).map(type => <button key={type} type="button" className={control}
+          disabled={busy || dirty || !hasCaptions} onClick={() => void run(async signal => {
+            const file = await fetchSubtitles(type, signal);
+            if (!signal.aborted) setSubtitleFile({url: URL.createObjectURL(file), type});
+          })}>Prepare captions {type === "srt" ? "SRT" : "WebVTT"}</button>)}
+        {subtitleFile && <a className={control} href={subtitleFile.url} download={`indaverse-${projectId}-captions.${subtitleFile.type}`}>
+          Download captions {subtitleFile.type === "srt" ? "SRT" : "WebVTT"}
+        </a>}
       </div>
     </>}
     {preview && <div className="space-y-2">
@@ -406,7 +423,9 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
       </div>
     </div>}
     {result && <div className="space-y-2">
-      <video className="max-h-80 max-w-full" src={result.url} controls preload="metadata" aria-label="Rendered sequence preview" />
+      <video key={result.url} className="max-h-80 max-w-full" src={result.url} controls preload="metadata" aria-label="Rendered sequence preview">
+        {result.vtt && <track kind="captions" src={result.vtt} srcLang="und" label="Project captions" default />}
+      </video>
       <a className={`${control} inline-block`} href={result.url} download={result.name}>Download sequence MP4</a>
     </div>}
     {busy && <p role="status">Working…</p>}

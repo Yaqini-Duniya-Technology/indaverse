@@ -230,14 +230,14 @@
     "priority": 15,
     "status": "Tested",
     "dependencies": "Saved clip sequence and local FFmpeg.",
-    "implementation_progress": "Per-clip title placement and display duration; one manual caption per clip.",
+    "implementation_progress": "Per-clip title placement and timing; multiple timed multiline captions per cut, SRT import, and preview tracks.",
     "provider_configuration": "No AI provider; enable the local renderer.",
-    "export_capability": "Optionally render captions into the picture or download them as a private SRT.",
-    "automated_tests": "Decoded pixels verify timed titles and caption visibility; SRT checks cover timing, ownership and stale versions.",
-    "manual_acceptance": "Add a short title and a caption; render and verify both, then check that SRT matches cut timing.",
+    "export_capability": "Render positioned captions into the MP4, or download private SRT and WebVTT sidecars.",
+    "automated_tests": "Decoded MP4 frames verify caption timing and placement. API and browser checks cover imports, downloads, cue timing, validation and preview tracks.",
+    "manual_acceptance": "Import two cues into a trimmed cut, move one to the top, and verify the MP4 preview and subtitle downloads.",
     "documentation": "docs/VIDEO-SEQUENCE.md",
-    "git_reference": "expansion/video-finishing",
-    "known_blockers": "Text animation and multiple caption cues per cut remain pending."
+    "git_reference": "expansion/video-caption-cues",
+    "known_blockers": "Text animation, automatic transcription and whole-sequence subtitle import remain pending."
   },
   {
     "id": "IND-016",

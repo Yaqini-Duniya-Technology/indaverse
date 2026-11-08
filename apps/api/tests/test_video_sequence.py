@@ -295,3 +295,74 @@ def test_soundtrack_renders_trim_offset_fades_and_mix(video_workspace, tmp_path)
     assert client.get(f"{base}/soundtrack?version=6").status_code == 404
     render(6)
     assert tone(1.2, 440) > 1500 and tone(1.2, 940) < 80
+
+
+def test_timed_captions_survive_reordering_and_render_at_each_position(video_workspace, tmp_path):
+    tools = renderer_tools()
+    if not tools:
+        pytest.skip("Requires FFmpeg and FFprobe.")
+    ffmpeg, _ = tools
+    client = video_workspace
+    base = "/api/v1/projects/1/video/sequence"
+    source = tmp_path / "source.mp4"
+    subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "color=blue:s=160x120:r=30:d=2",
+                    "-c:v", "libx264", "-threads", "2", str(source)], check=True, timeout=15)
+    for version in range(2):
+        assert client.post(f"{base}/sources?version={version}", content=source.read_bytes(),
+                           headers={"Content-Type": "video/mp4", "X-Video-Filename": "source.mp4"}).status_code == 201
+    first, second = client.get(base).json()["clips"]
+    first = {**first, "start_ms": 500, "end_ms": 1500}
+    second = {**second, "end_ms": 800, "caption": "Intro"}
+    lower = {"start_ms": 100, "end_ms": 350, "text": "One & two\nNext line"}
+    upper = {"start_ms": 600, "end_ms": 900, "text": "Up <here>", "position": "top"}
+    for clip in (
+        {**first, "caption_cues": [lower, {**upper, "start_ms": 200}]},
+        {**first, "caption_cues": [{**upper, "end_ms": 1100}]},
+        {**first, "caption_cues": [{**lower, "end_ms": 150}]},
+        {**first, "caption_cues": [{**lower, "text": "Bad\n\nline"}]},
+        {**first, "caption_cues": [lower], "caption": "Both"},
+        {**first, "caption_cues": [lower] * 7},
+    ):
+        assert client.put(base, json={"version": 2, "clips": [second, clip]}).status_code == 422
+    saved = client.put(base, json={"version": 2, "clips": [second, {**first, "caption_cues": [upper, lower]}]})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["clips"][1]["caption_cues"] == [lower, upper]
+    assert client.get(f"{base}/captions.vtt?version=2").status_code == 409
+    client.cookies.set("indaverse_access_token", "2")
+    assert client.get(f"{base}/captions.vtt?version=3").status_code == 404
+    client.cookies.set("indaverse_access_token", "1")
+    vtt = client.get(f"{base}/captions.vtt?version=3")
+    assert vtt.headers["content-type"] == "text/vtt; charset=utf-8"
+    assert vtt.headers["cache-control"] == "no-store"
+    assert vtt.text == ("WEBVTT\n\n00:00:00.000 --> 00:00:00.800\nIntro\n\n"
+                        "00:00:00.900 --> 00:00:01.150\nOne &amp; two\nNext line\n\n"
+                        "00:00:01.400 --> 00:00:01.700 line:10%\nUp &lt;here&gt;\n")
+    srt = client.get(f"{base}/captions.srt?version=3")
+    assert "2\n00:00:00,900 --> 00:00:01,150\nOne &amp; two\nNext line" in srt.text
+    assert "line:10%" not in srt.text
+    mp4 = client.post(f"{base}/render?version=3&burn_captions=true")
+    assert mp4.status_code == 200, mp4.text
+    output = tmp_path / "captioned.mp4"
+    output.write_bytes(mp4.content)
+    for time, low, high in ((1.0, True, False), (1.25, False, False), (1.55, False, True)):
+        for y, visible in ((255, low), (12, high)):
+            pixels = subprocess.check_output([
+                ffmpeg, "-v", "error", "-ss", str(time), "-i", str(output), "-frames:v", "1",
+                "-vf", f"crop=480:90:80:{y}", "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
+            ], timeout=10)
+            assert (sum(min(pixel) > 200 for pixel in struct.iter_unpack("BBB", pixels)) > 50) == visible
+
+    for version in (3, 4):
+        assert client.post(f"{base}/sources?version={version}", content=source.read_bytes(),
+                           headers={"Content-Type": "video/mp4", "X-Video-Filename": "source.mp4"}).status_code == 201
+    limits = [{**cut, "caption": "", "caption_cues": [
+        {"start_ms": i * 100, "end_ms": (i + 1) * 100, "text": f"Cue {i + 1}"}
+        for i in range(4)
+    ]} for cut in client.get(base).json()["clips"]]
+    over_limit = [{**limits[0], "caption_cues": [
+        *limits[0]["caption_cues"], {"start_ms": 400, "end_ms": 500, "text": "Extra cue"}
+    ]}, *limits[1:]]
+    assert client.put(base, json={"version": 5, "clips": over_limit}).status_code == 422
+    assert client.put(base, json={"version": 5, "clips": limits}).status_code == 200
+    result = client.post(f"{base}/render?version=6&burn_captions=true")
+    assert result.status_code == 200, result.text
