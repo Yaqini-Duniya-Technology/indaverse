@@ -16,8 +16,8 @@ from app.api.v1.video_clip_export import available_tools, render_slot
 from app.api.v1.video_projects import owned_video_project
 from app.database.connection import get_db
 from app.models.user import User
-from app.models.video_sequence import VideoSequence, VideoSequenceSource
-from app.services import clip_export, sequence_export as export
+from app.models.video_sequence import VideoSequence, VideoSequenceSoundtrack, VideoSequenceSource
+from app.services import clip_export, sequence_export as export, sequence_soundtrack as music
 from app.services.export_response import private_download
 
 router = APIRouter(prefix="/projects/{project_id}/video/sequence", tags=["Video Studio"])
@@ -46,10 +46,22 @@ class Cut(BaseModel):
         return value.strip()
 
 
+class SoundtrackSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    start_ms: int = Field(ge=0, le=120_000)
+    end_ms: int = Field(gt=0, le=120_000)
+    offset_ms: int = Field(default=0, ge=0, lt=export.MAX_SEQUENCE_MS)
+    volume_percent: int = Field(default=35, ge=0, le=100)
+    fade_in_ms: int = Field(default=0, ge=0, le=5000)
+    fade_out_ms: int = Field(default=0, ge=0, le=5000)
+    mode: Literal["mix", "replace"] = "mix"
+
+
 class SequenceEdit(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     version: int = Field(ge=0)
     clips: list[Cut] = Field(max_length=export.MAX_CLIPS)
+    soundtrack_settings: SoundtrackSettings | None = None
 
 
 def load(db, project_id, user_id, *, lock=False, version=None):
@@ -62,8 +74,12 @@ def load(db, project_id, user_id, *, lock=False, version=None):
     return sequence, sources
 
 
-def state(sequence, sources):
+def state(db, sequence, sources):
+    track = db.get(VideoSequenceSoundtrack, sequence.project_id) if sequence else None
     return {
+        "soundtrack": ({"name": track.name, "duration_ms": track.duration_ms,
+                        "media_type": music.MEDIA_TYPES[track.format], "settings": track.settings}
+                       if track else None),
         "version": sequence.version if sequence else 0,
         "clips": sequence.clips if sequence else [],
         "sources": [{"id": s.id, "name": s.name, "duration_ms": s.duration_ms} for s in sources.values()],
@@ -73,7 +89,7 @@ def state(sequence, sources):
 
 @router.get("")
 def get_sequence(project_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return state(*load(db, project_id, user.id, lock=True))
+    return state(db, *load(db, project_id, user.id, lock=True))
 
 
 def add_source(db, project_id, user_id, version, name, duration, content):
@@ -95,7 +111,7 @@ def add_source(db, project_id, user_id, version, name, duration, content):
     sequence.clips = [*current, {"source_id": source.id, "start_ms": 0, "end_ms": end}]
     sequence.version += 1
     sources[source.id] = source
-    result = state(sequence, sources)
+    result = state(db, sequence, sources)
     db.commit()
     return result
 
@@ -148,6 +164,102 @@ async def upload_source(
         render_slot.release()
 
 
+def store_soundtrack(db, project_id, user_id, version, name, audio_format, duration, content):
+    sequence, sources = load(db, project_id, user_id, lock=True, version=version)
+    if sequence is None or not sequence.clips:
+        raise HTTPException(422, "Add a video clip before attaching a soundtrack.")
+    track = db.get(VideoSequenceSoundtrack, project_id)
+    if track is None:
+        track = VideoSequenceSoundtrack(project_id=project_id)
+        db.add(track)
+    track.name = name
+    track.format = audio_format
+    track.duration_ms = duration
+    track.settings = SoundtrackSettings(start_ms=0, end_ms=duration).model_dump()
+    track.content = content
+    sequence.version += 1
+    db.flush()
+    result = state(db, sequence, sources)
+    db.commit()
+    return result
+
+
+@router.post("/soundtrack")
+async def upload_soundtrack(
+    project_id: int, request: Request,
+    version: int = Query(ge=0), encoded_name: str = Header(alias="X-Audio-Filename", max_length=1800),
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    user_id = user.id
+    def check_sequence():
+        sequence, _ = load(db, project_id, user_id, version=version)
+        if sequence is None or not sequence.clips:
+            raise HTTPException(422, "Add a video clip before attaching a soundtrack.")
+
+    await run_in_threadpool(check_sequence)
+    await run_in_threadpool(db.close)
+    tools = available_tools()
+    if tools is None:
+        raise HTTPException(503, "Local audio processing is unavailable.")
+    name = unquote(encoded_name).strip()
+    if not 1 <= len(name) <= 150 or any(not char.isprintable() or char in "/\\" for char in name):
+        raise HTTPException(422, "Use a soundtrack name of 1 to 150 characters.")
+    audio_format = name.lower().rsplit(".", 1)[-1] if "." in name else ""
+    if audio_format not in music.MEDIA_TYPES or music.MEDIA_TYPES[audio_format] != request.headers.get("content-type"):
+        raise HTTPException(415, "Choose an MP3 or PCM WAV soundtrack.")
+    if not render_slot.acquire(blocking=False):
+        raise HTTPException(429, "Media processing is busy. Try again shortly.")
+    try:
+        with TemporaryDirectory(prefix="indaverse-soundtrack-") as folder:
+            path = Path(folder) / f"soundtrack.{audio_format}"
+            size = 0
+            with anyio.fail_after(30):
+                async with await anyio.open_file(path, "wb") as target:
+                    async for chunk in request.stream():
+                        size += len(chunk)
+                        if size > music.MAX_BYTES:
+                            raise HTTPException(413, "Soundtracks must be 8 MiB or smaller.")
+                        await target.write(chunk)
+            duration = await run_in_threadpool(music.duration_ms, tools[1], path, audio_format)
+            content = await run_in_threadpool(path.read_bytes)
+            return await run_in_threadpool(store_soundtrack, db, project_id, user_id, version,
+                                           name, audio_format, duration, content)
+    except TimeoutError as exc:
+        raise HTTPException(408, "The soundtrack upload timed out.") from exc
+    except clip_export.ClipError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(503, "Temporary audio storage is unavailable.") from exc
+    finally:
+        render_slot.release()
+
+
+@router.get("/soundtrack")
+def preview_soundtrack(project_id: int, version: int = Query(ge=0),
+                       user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    load(db, project_id, user.id, lock=True, version=version)
+    track = db.get(VideoSequenceSoundtrack, project_id)
+    if track is None:
+        raise HTTPException(404, "No saved soundtrack.")
+    return Response(track.content, media_type=music.MEDIA_TYPES[track.format],
+                    headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
+
+@router.delete("/soundtrack")
+def remove_soundtrack(project_id: int, version: int = Query(ge=0),
+                      user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    sequence, sources = load(db, project_id, user.id, lock=True, version=version)
+    track = db.get(VideoSequenceSoundtrack, project_id)
+    if track is None:
+        raise HTTPException(404, "No saved soundtrack.")
+    db.delete(track)
+    sequence.version += 1
+    db.flush()
+    result = state(db, sequence, sources)
+    db.commit()
+    return result
+
+
 @router.put("")
 def save_sequence(project_id: int, edit: SequenceEdit,
                   user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -166,15 +278,30 @@ def save_sequence(project_id: int, edit: SequenceEdit,
     if total > export.MAX_SEQUENCE_MS:
         raise HTTPException(422, "The sequence must be 30 seconds or shorter.")
     clips = [clip.model_dump(exclude_defaults=True) for clip in edit.clips]
-    if sequence is not None and sequence.clips != clips:
+    soundtrack_changed = False
+    if edit.soundtrack_settings is not None:
+        track = db.get(VideoSequenceSoundtrack, project_id)
+        if track is None:
+            raise HTTPException(422, "Attach a soundtrack before changing its settings.")
+        settings = edit.soundtrack_settings
+        length = settings.end_ms - settings.start_ms
+        if length < 250 or settings.end_ms > track.duration_ms:
+            raise HTTPException(422, "Choose at least 0.25 seconds within the soundtrack.")
+        if settings.fade_in_ms > length or settings.fade_out_ms > length:
+            raise HTTPException(422, "Each fade must be within the selected soundtrack range.")
+        updated_settings = settings.model_dump()
+        soundtrack_changed = track.settings != updated_settings
+        if soundtrack_changed:
+            track.settings = updated_settings
+    if sequence is not None and (sequence.clips != clips or soundtrack_changed):
         sequence.clips = clips
         sequence.version += 1
         for source_id in sources.keys() - kept:
             db.delete(sources.pop(source_id))
-        result = state(sequence, sources)
+        result = state(db, sequence, sources)
         db.commit()
         return result
-    return state(sequence, sources)
+    return state(db, sequence, sources)
 
 
 @router.get("/sources/{source_id}")
@@ -213,9 +340,12 @@ def render_sequence(project_id: int, version: int = Query(ge=0),
         raise HTTPException(429, "Video processing is busy. Try again shortly.")
     try:
         items = [(cut, sources[cut["source_id"]].content) for cut in sequence.clips]
+        track = db.get(VideoSequenceSoundtrack, project_id)
+        soundtrack = (track.format, track.settings, track.content) if track else None
         db.close()
         with TemporaryDirectory(prefix="indaverse-sequence-") as folder:
-            content = export.render(tools, Path(folder), items, preset=preset, burn_captions=burn_captions)
+            content = export.render(tools, Path(folder), items, preset=preset,
+                                    burn_captions=burn_captions, soundtrack=soundtrack)
     except clip_export.ClipError as exc:
         raise HTTPException(exc.status, str(exc)) from exc
     except OSError as exc:

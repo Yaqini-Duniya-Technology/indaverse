@@ -310,14 +310,14 @@
     "priority": 20,
     "status": "Tested",
     "dependencies": "Saved clip sequence and local FFmpeg.",
-    "implementation_progress": "Saved per-clip mute and volume from 0% to 100%, with audio fades when clip fades are enabled.",
+    "implementation_progress": "Per-clip mute and volume; one saved MP3 or PCM WAV soundtrack with trim, offset, independent fades, volume, and mix or replace mode.",
     "provider_configuration": "No AI provider; enable the local renderer.",
-    "export_capability": "The MP4 includes the selected volume, mute, and clip-edge audio fades.",
-    "automated_tests": "Decoded PCM checks confirm source volume, attenuation, fades, and silence after mute.",
-    "manual_acceptance": "Set an audible clip to 50%, enable fades, render, and compare with the original source preview.",
+    "export_capability": "Local MP4 export includes the saved soundtrack and clip audio settings.",
+    "automated_tests": "Decoded PCM confirms trim, timeline offset, fades, mix and replace; Chromium verifies attachment, preview, saving and export.",
+    "manual_acceptance": "Add a score under dialogue, delay it by one second, set its volume to 35%, and preview the rendered result.",
     "documentation": "docs/VIDEO-SEQUENCE.md",
-    "git_reference": "expansion/video-fades",
-    "known_blockers": "Separate soundtracks, voiceover and sync controls remain pending."
+    "git_reference": "expansion/video-soundtrack",
+    "known_blockers": "Multiple audio layers, waveform editing, and voiceover recording remain pending."
   },
   {
     "id": "IND-021",

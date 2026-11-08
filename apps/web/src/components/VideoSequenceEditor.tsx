@@ -7,12 +7,26 @@ type Cut = { source_id: string; start_ms: number; end_ms: number; title?: string
   framing?: "fit" | "fill"; title_position?: "top" | "bottom"; title_duration_ms?: number; caption?: string };
 type Preset = "landscape" | "vertical" | "square";
 type Source = { id: string; name: string; duration_ms: number };
-type Sequence = { version: number; clips: Cut[]; sources: Source[]; renderer_available: boolean };
+type SoundtrackSettings = {
+  start_ms: number; end_ms: number; offset_ms: number; volume_percent: number;
+  fade_in_ms: number; fade_out_ms: number; mode: "mix" | "replace";
+};
+type Soundtrack = { name: string; duration_ms: number; media_type: string; settings: SoundtrackSettings };
+type Sequence = { version: number; clips: Cut[]; sources: Source[]; renderer_available: boolean; soundtrack: Soundtrack | null };
+const soundtrackTimes = [
+  {key: "start_ms", label: "Audio trim start (seconds)", min: 0},
+  {key: "end_ms", label: "Audio trim end (seconds)", min: 0.25},
+  {key: "offset_ms", label: "Start in video (seconds)", min: 0, max: 29.999},
+  {key: "fade_in_ms", label: "Audio fade in (seconds)", min: 0, max: 5},
+  {key: "fade_out_ms", label: "Audio fade out (seconds)", min: 0, max: 5},
+] as const;
 const control = "rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-2 disabled:opacity-50";
 const seconds = (ms: number) => String(ms / 1000);
 
 export default function VideoSequenceEditor({ projectId }: { projectId: number }) {
   const base = `/api/v1/projects/${projectId}/video/sequence`;
+  const [soundtrackSettings, setSoundtrackSettings] = useState<SoundtrackSettings>();
+  const [soundtrackPreview, setSoundtrackPreview] = useState<string>();
   const [saved, setSaved] = useState<Sequence>();
   const [clips, setClips] = useState<Cut[]>([]);
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -33,6 +47,13 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);
 
   useEffect(() => () => { if (subtitleFile) URL.revokeObjectURL(subtitleFile); }, [subtitleFile]);
+
+  useEffect(() => () => { if (soundtrackPreview) URL.revokeObjectURL(soundtrackPreview); }, [soundtrackPreview]);
+
+  function editSoundtrack(change: Partial<SoundtrackSettings>) {
+    setSoundtrackSettings(current => current && {...current, ...change});
+    setResult(undefined);
+  }
 
   function update(id: string, change: Partial<Cut>) {
     setClips(current => current.map(item => item.source_id === id ? {...item, ...change} : item));
@@ -60,6 +81,8 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
 
   function install(next: Sequence) {
     setSaved(next);
+    setSoundtrackSettings(next.soundtrack?.settings);
+    setSoundtrackPreview(undefined);
     setClips(next.clips);
     setFields({});
     setPreview(undefined);
@@ -83,12 +106,22 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
     }
   }
 
-  const dirty = saved !== undefined && JSON.stringify(clips) !== JSON.stringify(saved.clips);
+  const track = saved?.soundtrack;
+  const soundtrackDirty = JSON.stringify(soundtrackSettings) !== JSON.stringify(track?.settings);
+  const dirty = saved !== undefined && (JSON.stringify(clips) !== JSON.stringify(saved.clips) || soundtrackDirty);
   const total = clips.reduce((sum, cut) => sum + cut.end_ms - cut.start_ms, 0);
   const invalid = !Number.isFinite(total) || total > 30000 || clips.some(cut => cut.start_ms < 0 ||
     cut.end_ms - cut.start_ms < 500 ||
     cut.end_ms > (saved?.sources.find(source => source.id === cut.source_id)?.duration_ms ?? 0));
 
+  const trackLength = soundtrackSettings ? soundtrackSettings.end_ms - soundtrackSettings.start_ms : 0;
+  const invalidTrack = !!soundtrackSettings && (
+    !Number.isFinite(trackLength) || trackLength < 250 || soundtrackSettings.start_ms < 0 ||
+    soundtrackSettings.end_ms > (track?.duration_ms ?? 0) ||
+    !Number.isFinite(soundtrackSettings.offset_ms) || soundtrackSettings.offset_ms < 0 || soundtrackSettings.offset_ms >= 30000 ||
+    [soundtrackSettings.fade_in_ms, soundtrackSettings.fade_out_ms].some(value =>
+      !Number.isFinite(value) || value < 0 || value > Math.min(5000, trackLength))
+  );
   const hasCaptions = clips.some(cut => cut.caption?.trim());
   const timeline = clips.reduce<{start: number; end: number}[]>((ranges, cut) => {
     const start = ranges.at(-1)?.end ?? 0;
@@ -247,6 +280,79 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
       </ol>
       <p>Sequence: {Number.isFinite(total) ? `${seconds(total)} seconds` : "invalid duration"} · {dirty ? "Unsaved changes" : `Saved version ${saved.version}`}</p>
       {invalid && <p role="alert">Use cuts of at least 0.5 seconds within each source and a total of at most 30 seconds.</p>}
+      <fieldset className="space-y-3 rounded border border-zinc-700 p-3" disabled={busy}>
+        <legend className="px-1 font-semibold">Soundtrack</legend>
+        <p className="text-sm text-zinc-300">Attach one MP3 or PCM WAV (up to 8 MiB and 120 seconds). The file is saved privately with this sequence.</p>
+        <label className="block">{track ? "Replace soundtrack file" : "Add soundtrack file"}
+          <input type="file" accept=".mp3,.wav,audio/mpeg,audio/wav" className={`${control} mt-1 block w-full`}
+            disabled={dirty || !clips.length || !saved.renderer_available}
+            onChange={event => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              const format = file.name.toLowerCase().split(".").at(-1);
+              if (!file.size || file.size > 8 * 1024 * 1024 || (format !== "mp3" && format !== "wav")) {
+                setError("Choose a nonempty MP3 or WAV up to 8 MiB.");
+                return;
+              }
+              if (track && !window.confirm("Replace the saved soundtrack and reset its trim and mix settings?")) return;
+              const name = Array.from(file.name).slice(0, 146).join("");
+              const filename = name.toLowerCase().endsWith(`.${format}`) ? name : `${name}.${format}`;
+              const mediaType = format === "mp3" ? "audio/mpeg" : "audio/wav";
+              void run(async signal => {
+                install(await apiFetch<Sequence>(`${base}/soundtrack?version=${saved.version}`, {
+                  method: "POST", headers: {"X-Audio-Filename": encodeURIComponent(filename)},
+                  rawBody: file.slice(0, file.size, mediaType), signal,
+                }));
+                setNotice(track ? "Soundtrack replaced." : "Soundtrack added and saved.");
+              });
+            }} />
+        </label>
+        {!clips.length && <p className="text-sm">Add a video clip to attach a soundtrack.</p>}
+        {track && soundtrackSettings && <>
+          <p className="break-words">{track.name} · {seconds(track.duration_ms)} seconds</p>
+          <div className="flex flex-wrap gap-3">
+            {soundtrackTimes.map(field => <label key={field.key}>{field.label}
+              <input type="number" className={`${control} block w-36`} min={field.min}
+                max={"max" in field ? field.max : track.duration_ms / 1000} step="0.001"
+                value={Number.isFinite(soundtrackSettings[field.key]) ? seconds(soundtrackSettings[field.key]) : ""}
+                onChange={event => editSoundtrack({[field.key]: Math.round(event.target.valueAsNumber * 1000)})} />
+            </label>)}
+            <label>Soundtrack volume ({soundtrackSettings.volume_percent}%)
+              <input type="range" aria-label="Soundtrack volume" min={0} max={100} className="block w-36"
+                value={soundtrackSettings.volume_percent}
+                onChange={event => editSoundtrack({volume_percent: event.target.valueAsNumber})} />
+            </label>
+            <label>Clip audio
+              <select className={`${control} block`} value={soundtrackSettings.mode}
+                onChange={event => editSoundtrack({mode: event.target.value === "replace" ? "replace" : "mix"})}>
+                <option value="mix">Mix with original clip audio</option>
+                <option value="replace">Replace original clip audio</option>
+              </select>
+            </label>
+          </div>
+          <p className="text-sm text-zinc-300">Audio stops at the end of the video. Replace silences the original clips across the whole video.</p>
+          {invalidTrack && <p role="alert">Use at least 0.25 seconds within the audio source, an offset below 30 seconds, and fades within the cut and no longer than 5 seconds each.</p>}
+          {!invalidTrack && !invalid && total > 0 && soundtrackSettings.offset_ms >= total &&
+            <p role="status">The soundtrack starts after the video ends. Move its start earlier to hear it.</p>}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={control} onClick={() => void run(async signal => {
+              const file = await apiDownload(`${base}/soundtrack?version=${saved.version}`, undefined,
+                "application/octet-stream", track.media_type, signal);
+              if (!signal.aborted) setSoundtrackPreview(URL.createObjectURL(file));
+            })}>Preview soundtrack source</button>
+            <button type="button" className={control} disabled={dirty} onClick={() => {
+              if (!window.confirm("Remove the saved soundtrack from this sequence?")) return;
+              void run(async signal => {
+                install(await apiFetch<Sequence>(`${base}/soundtrack?version=${saved.version}`, {method: "DELETE", signal}));
+                setNotice("Soundtrack removed.");
+              });
+            }}>Remove soundtrack</button>
+          </div>
+          {soundtrackPreview && <audio controls className="max-w-full" preload="metadata"
+            aria-label="Original soundtrack preview" src={soundtrackPreview} />}
+        </>}
+      </fieldset>
       <fieldset className="space-y-2 rounded border border-zinc-700 p-3" disabled={busy}>
         <legend className="px-1 font-semibold">Export settings</legend>
         <label>Video format
@@ -268,10 +374,10 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
         <p className="text-sm text-zinc-300">These choices apply to the next render. SRT is a separate subtitle file.</p>
       </fieldset>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={control} disabled={busy || !dirty || invalid} onClick={() => {
+        <button type="button" className={control} disabled={busy || !dirty || invalid || invalidTrack} onClick={() => {
           if (clips.length < saved.clips.length && !window.confirm("Remove the selected clips and their saved source files?")) return;
           void run(async signal => {
-            install(await apiFetch<Sequence>(base, {method: "PUT", body: {version: saved.version, clips}, signal}));
+            install(await apiFetch<Sequence>(base, {method: "PUT", body: {version: saved.version, clips, soundtrack_settings: soundtrackDirty ? soundtrackSettings : undefined}, signal}));
             setNotice("Sequence saved.");
           });
         }}>Save sequence</button>

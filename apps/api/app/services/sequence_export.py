@@ -6,6 +6,7 @@ from typing import Literal
 
 from PIL import Image, ImageDraw, ImageFont
 
+from app.services.sequence_soundtrack import append_mix
 from app.services.clip_export import ClipError, INPUT_FLAGS, MAX_BYTES, probe, run
 
 MAX_CLIPS = 4
@@ -67,7 +68,8 @@ def captions_srt(cuts: list[dict]) -> bytes:
 
 
 def render(tools: tuple[str, str], directory: Path, items: list[tuple[dict, bytes]],
-           *, preset: Preset = "landscape", burn_captions: bool = False) -> bytes:
+           *, preset: Preset = "landscape", burn_captions: bool = False,
+           soundtrack: tuple[str, dict, bytes] | None = None) -> bytes:
     width, height = CANVASES[preset]
     ffmpeg, ffprobe = tools
     inputs, overlays, filters, streams = [], [], [], []
@@ -124,11 +126,13 @@ def render(tools: tuple[str, str], directory: Path, items: list[tuple[dict, byte
             audio = "anullsrc=channel_layout=stereo:sample_rate=48000"
         filters.append(f"{audio},atrim=duration={length:.3f},asetpts=PTS-STARTPTS{audio_fade}[a{index}]")
         streams.append(f"[v{index}][a{index}]")
-    filters.append("".join(streams) + f"concat=n={len(items)}:v=1:a=1[video][audio]")
+    audio_output = "clipaudio" if soundtrack else "audio"
+    filters.append("".join(streams) + f"concat=n={len(items)}:v=1:a=1[video][{audio_output}]")
+    music_input = append_mix(directory, soundtrack, expected, len(items) + len(overlays), filters) if soundtrack else []
     output = directory / "sequence.mp4"
     run([
         ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin", "-max_alloc", "67108864",
-        "-filter_complex_threads", "1", *inputs, *(flag for args in overlays for flag in args), "-filter_complex", ";".join(filters),
+        "-filter_complex_threads", "1", *inputs, *(flag for args in overlays for flag in args), *music_input, "-filter_complex", ";".join(filters),
         "-map", "[video]", "-map", "[audio]", "-map_metadata", "-1", "-map_chapters", "-1",
         "-t", f"{expected:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-threads", "2",
         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",

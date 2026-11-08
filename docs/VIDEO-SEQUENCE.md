@@ -14,9 +14,17 @@ For example, put a 1-second uncaptioned intro before a 2-second clip captioned �
 
 Each source is capped at 8 MiB and 120 seconds. Each cut is at least 0.5 seconds and the sequence is capped at 30 seconds. Output is H.264/AAC at 30 fps. A source without audio contributes silence. Removing a clip and saving deletes its stored copy; the file on your device is unchanged.
 
+## Add a soundtrack
+
+Add one MP3 or PCM WAV of 0.25–120 seconds and up to 8 MiB. Use **Preview soundtrack source** to hear the original. Set the trim start and end in the source, then set **Start in video** to place it on the output timeline. Adjust the soundtrack volume and its independent fade-in and fade-out (up to five seconds each).
+
+Choose **Mix with original clip audio** for music under speech, or **Replace original clip audio** to silence the original clips throughout the video. The soundtrack stops at the end of the video. If the video ends during the soundtrack, its fade-out moves to the end of the audible range. Use **Save sequence** before rendering. **Replace soundtrack file** swaps the source and resets its settings; **Remove soundtrack** restores the original clip audio for the next render.
+
+Example: trim a soundtrack to seconds 2–6, start it 1 second into the video, and mix it at 35% with a 0.5-second fade at each end. Preview the rendered MP4 to check the balance.
+
 ## Local setup and data
 
-- Apply the saved sequence migration if it has not been applied. The finishing controls use the existing sequence data and add no migration.
+- Run `alembic upgrade head` from `apps/api` using the configured database. The soundtrack migration adds a table and preserves existing sequences. Downgrading it removes saved soundtracks.
 - Enable local FFmpeg using the [single-clip export guide](VIDEO-CLIP-EXPORT.md). Public rendering remains disabled. Project ownership is checked for source reads, uploads, edits and exports.
-- Source bytes are kept privately in the database so reopening works without reattaching files. This adds up to 32 MiB of storage per project and is included in database backups. Sources are separate from the shared asset library and are not included when duplicating project drafts. Rendering uses temporary files and returns a private MP4 attachment.
-- This is one ordered list of cuts. Multiple tracks, overlapping transitions, automatic transcription, multiple subtitle cues within a cut, and background render jobs are later work. Text rendering uses the bundled Pillow font; some characters may not be available.
+- Source bytes are kept privately in the database so reopening works without reattaching files. Clip sources add up to 32 MiB per project; a soundtrack adds up to 8 MiB. Both are included in database backups. Sources are separate from the shared asset library and are not included when duplicating project drafts. Rendering uses temporary files and returns a private MP4 attachment.
+- This is one ordered list of cuts. Multiple soundtrack layers, overlapping transitions, automatic transcription, multiple subtitle cues within a cut, and background render jobs are later work. Text rendering uses the bundled Pillow font; some characters may not be available.
