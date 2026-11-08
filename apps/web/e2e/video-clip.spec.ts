@@ -50,7 +50,7 @@ test("render a selected video range and download a decodable MP4", async ({ page
   }
 });
 
-test("save, reopen and export a vertical sequence with captions", async ({ page }) => {
+test("save, reopen and export a vertical sequence with captions and a soundtrack", async ({ page }) => {
   test.skip(spawnSync("ffmpeg", ["-version"]).status !== 0 ||
     spawnSync("ffprobe", ["-version"]).status !== 0, "Requires FFmpeg and FFprobe.");
   const folder = await mkdtemp(join(tmpdir(), "indaverse-e2e-sequence-"));
@@ -123,6 +123,29 @@ test("save, reopen and export a vertical sequence with captions", async ({ page 
     const subtitlePath = join(folder, "captions.srt");
     await subtitle.saveAs(subtitlePath);
     expect(await readFile(subtitlePath, "utf8")).toBe("1\n00:00:01,000 --> 00:00:03,000\nFind the beacon.\n");
+    const score = join(folder, "beacon.wav");
+    execFileSync("ffmpeg", ["-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=2", score],
+      {timeout: 15000});
+    await editor.getByLabel("Add soundtrack file").setInputFiles(score);
+    await expect(editor.getByText("Soundtrack added and saved.")).toBeVisible();
+    const soundtrack = editor.getByRole("group", {name: "Soundtrack"});
+    await soundtrack.getByRole("button", {name: "Preview soundtrack source"}).click();
+    await expect(soundtrack.getByLabel("Original soundtrack preview")).toHaveAttribute("src", /^blob:/);
+    await soundtrack.getByLabel("Start in video (seconds)").fill("0.5");
+    await soundtrack.getByLabel("Audio fade in (seconds)").fill("0.25");
+    await soundtrack.getByLabel("Audio fade out (seconds)").fill("0.3");
+    await soundtrack.getByRole("slider", {name: "Soundtrack volume"}).press("ArrowRight");
+    await soundtrack.getByRole("combobox", {name: "Clip audio", exact: true}).selectOption("replace");
+    await editor.getByRole("button", {name: "Save sequence"}).click();
+    await expect(editor.getByText("Sequence saved.")).toBeVisible();
+    await page.reload();
+    await editor.getByRole("button", {name: "Open clip sequence"}).click();
+    await expect(soundtrack.getByText(/beacon.wav/)).toBeVisible();
+    await expect(soundtrack.getByLabel("Start in video (seconds)")).toHaveValue("0.5");
+    await expect(soundtrack.getByLabel("Audio fade in (seconds)")).toHaveValue("0.25");
+    await expect(soundtrack.getByLabel("Audio fade out (seconds)")).toHaveValue("0.3");
+    await expect(soundtrack.getByRole("slider", {name: "Soundtrack volume"})).toHaveValue("36");
+    await expect(soundtrack.getByRole("combobox", {name: "Clip audio", exact: true})).toHaveValue("replace");
     await editor.getByLabel("Video format").selectOption("vertical");
     await editor.getByLabel("Show captions in the video").check();
     await editor.getByRole("button", {name: "Render saved sequence"}).click();
@@ -138,6 +161,10 @@ test("save, reopen and export a vertical sequence with captions", async ({ page 
     const size = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries",
       "stream=width,height", "-of", "csv=p=0", output], {encoding: "utf8", timeout: 10000});
     expect(size.trim()).toBe("360,640");
+    page.once("dialog", dialog => dialog.accept());
+    await soundtrack.getByRole("button", {name: "Remove soundtrack"}).click();
+    await expect(editor.getByText("Soundtrack removed.")).toBeVisible();
+    await expect(soundtrack.getByLabel("Add soundtrack file")).toBeVisible();
     execFileSync("ffmpeg", ["-v", "error", "-xerror", "-i", output, "-f", "null", "-"], {timeout: 10000});
   } finally {
     await rm(folder, {recursive: true, force: true});

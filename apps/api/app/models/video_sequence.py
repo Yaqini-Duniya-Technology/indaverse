@@ -22,3 +22,16 @@ class VideoSequenceSource(Base):
     name: Mapped[str] = mapped_column(String(150))
     duration_ms: Mapped[int] = mapped_column(Integer)
     content: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+
+
+class VideoSequenceSoundtrack(Base):
+    __tablename__ = "video_sequence_soundtracks"
+
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("video_sequences.project_id", ondelete="CASCADE"), primary_key=True,
+    )
+    name: Mapped[str] = mapped_column(String(150))
+    format: Mapped[str] = mapped_column(String(3))
+    duration_ms: Mapped[int] = mapped_column(Integer)
+    settings: Mapped[dict] = mapped_column(JSON)
+    content: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)

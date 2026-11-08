@@ -190,3 +190,108 @@ def test_social_presets_framing_timed_title_and_captions(video_workspace, tmp_pa
     assert white_count("2", "320:64:20:12") == 0  # Title ends at 1.75.
     assert white_count("0.6", "320:92:20:540") == 0
     assert white_count("2", "320:92:20:540") > 60
+
+
+def test_soundtrack_renders_trim_offset_fades_and_mix(video_workspace, tmp_path):
+    import math
+
+    tools = renderer_tools()
+    if not tools:
+        pytest.skip("Requires FFmpeg and FFprobe.")
+    ffmpeg, _ = tools
+    client = video_workspace
+    base = "/api/v1/projects/1/video/sequence"
+    video, track, replacement = [tmp_path / name for name in ("clip.mp4", "score.wav", "replacement.mp3")]
+    subprocess.run([
+        ffmpeg, "-v", "error", "-f", "lavfi", "-i", "color=blue:s=160x120:r=30:d=3",
+        "-f", "lavfi", "-i", "sine=frequency=440:duration=3", "-c:a", "aac",
+        "-c:v", "libx264", "-threads", "2", str(video),
+    ], check=True, timeout=15)
+    subprocess.run([
+        ffmpeg, "-v", "error", "-f", "lavfi", "-i", "sine=frequency=700:duration=1",
+        "-f", "lavfi", "-i", "sine=frequency=940:duration=2",
+        "-filter_complex", "[0:a][1:a]concat=n=2:v=0:a=1", str(track),
+    ], check=True, timeout=15)
+    subprocess.run([ffmpeg, "-v", "error", "-i", str(track), str(replacement)], check=True, timeout=15)
+
+    def upload(path, version, media_type):
+        return client.post(f"{base}/soundtrack?version={version}", content=path.read_bytes(),
+                           headers={"Content-Type": media_type, "X-Audio-Filename": path.name})
+
+    assert upload(track, 0, "audio/wav").status_code == 422
+    assert client.post(f"{base}/sources?version=0", content=video.read_bytes(),
+                       headers={"Content-Type": "video/mp4", "X-Video-Filename": "clip.mp4"}).status_code == 201
+    assert upload(track, 0, "audio/wav").status_code == 409
+    assert upload(track, 1, "audio/mpeg").status_code == 415
+    bad = tmp_path / "bad.wav"
+    bad.write_bytes(video.read_bytes())
+    assert upload(bad, 1, "audio/wav").status_code == 422
+    attached = upload(track, 1, "audio/wav")
+    assert attached.status_code == 200, attached.text
+    saved = attached.json()
+    assert saved["soundtrack"]["name"] == "score.wav"
+    assert saved["soundtrack"]["duration_ms"] == 3000
+    assert "content" not in saved["soundtrack"]
+    client.cookies.set("indaverse_access_token", "2")
+    assert client.get(f"{base}/soundtrack?version=2").status_code == 404
+    assert client.delete(f"{base}/soundtrack?version=2").status_code == 404
+    assert upload(track, 2, "audio/wav").status_code == 404
+    client.cookies.set("indaverse_access_token", "1")
+    preview = client.get(f"{base}/soundtrack?version=2")
+    assert preview.content == track.read_bytes()
+    assert preview.headers["cache-control"] == "no-store"
+
+    settings = {"start_ms": 1000, "end_ms": 2500, "offset_ms": 500, "volume_percent": 50,
+                "fade_in_ms": 400, "fade_out_ms": 400, "mode": "mix"}
+    for invalid in ({"end_ms": 3100}, {"fade_out_ms": 1600}, {"volume_percent": 101}, {"offset_ms": 30000}):
+        assert client.put(base, json={"version": 2, "clips": saved["clips"],
+                                      "soundtrack_settings": {**settings, **invalid}}).status_code == 422
+    edited = client.put(base, json={"version": 2, "clips": [{**saved["clips"][0], "title": "Zamara"}],
+                                   "soundtrack_settings": settings})
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["version"] == 3
+    assert client.get(base).json()["soundtrack"]["settings"] == settings
+    assert client.put(base, json={"version": 3, "clips": edited.json()["clips"],
+                                  "soundtrack_settings": settings}).json()["version"] == 3
+    assert client.post(f"{base}/render?version=2").status_code == 409
+    assert client.delete(f"{base}/soundtrack?version=2").status_code == 409
+    assert upload(replacement, 2, "audio/mpeg").status_code == 409
+
+    output = tmp_path / "mix.mp4"
+
+    def render(version):
+        result = client.post(f"{base}/render?version={version}")
+        assert result.status_code == 200, result.text
+        output.write_bytes(result.content)
+
+    def tone(start, hz):
+        pcm = subprocess.check_output([
+            ffmpeg, "-v", "error", "-ss", str(start), "-i", str(output), "-t", "0.05",
+            "-map", "0:a:0", "-ac", "1", "-ar", "8000", "-f", "s16le", "-",
+        ], timeout=10)
+        samples = [sample for (sample,) in struct.iter_unpack("<h", pcm)]
+        assert len(samples) == 400
+        return abs(sum(sample * complex(math.cos(i * hz * math.tau / 8000), math.sin(i * hz * math.tau / 8000))
+                       for i, sample in enumerate(samples))) * 2 / len(samples)
+
+    render(3)
+    assert tone(.2, 440) > 1500 and tone(.2, 940) < 80
+    assert tone(1.2, 440) > 1500 and tone(1.2, 940) > 1200
+    assert tone(1.2, 700) < 120  # The first second of the soundtrack was trimmed.
+    assert tone(.53, 940) < tone(1.2, 940) * .35
+    assert tone(1.88, 940) < tone(1.2, 940) * .35
+    assert tone(2.2, 940) < 80
+
+    assert client.put(base, json={"version": 3, "clips": edited.json()["clips"],
+                                  "soundtrack_settings": {**settings, "mode": "replace"}}).json()["version"] == 4
+    render(4)
+    assert tone(.2, 440) < 80 and tone(1.2, 440) < 80 and tone(1.2, 940) > 1200
+    replaced = upload(replacement, 4, "audio/mpeg")
+    assert replaced.status_code == 200, replaced.text
+    assert replaced.json()["soundtrack"]["settings"]["mode"] == "mix"
+    assert client.get(f"{base}/soundtrack?version=5").content == replacement.read_bytes()
+    removed = client.delete(f"{base}/soundtrack?version=5")
+    assert removed.json()["soundtrack"] is None and removed.json()["version"] == 6
+    assert client.get(f"{base}/soundtrack?version=6").status_code == 404
+    render(6)
+    assert tone(1.2, 440) > 1500 and tone(1.2, 940) < 80
