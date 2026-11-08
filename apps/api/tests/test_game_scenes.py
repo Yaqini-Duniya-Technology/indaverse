@@ -258,3 +258,16 @@ def test_scene_recovery_validation_access_and_dimension(scene_api):
         db.get(GameProject, 2).dimension = "2d"
         db.commit()
     assert client.post(url(2) + "/validate", json=layout()).status_code == 400
+
+
+def test_checkpoint_and_required_gems_are_validated_and_saved(scene_api):
+    client, _ = scene_api
+    scene = layout()
+    scene["checkpoint"] = {"x": 0, "y": 0, "z": 4}
+    scene["required_gems"] = 1
+    response = client.put(url(), json=payload(scene=scene))
+    assert response.status_code == 200, response.text
+    assert client.get(url()).json()["layout"] == scene
+    assert client.put(url(), json=payload(1, {**scene, "required_gems": 4})).status_code == 422
+    assert client.put(url(), json=payload(1, {**scene, "checkpoint": {"x": 40, "y": 0, "z": 4}})).status_code == 422
+    assert client.get(url()).json()["version"] == 1

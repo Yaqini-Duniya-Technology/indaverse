@@ -4,12 +4,13 @@ import Link from "next/link";
 import StudioWorkbench from "@/components/StudioWorkbench";
 import DraftExchange from "@/components/DraftExchange";
 import ProjectImages from "@/components/ProjectImages";
+import ManuscriptTools from "@/components/ManuscriptTools";
 import StoryCharactersEditor from "@/components/StoryCharactersEditor";
 import StoryScenesEditor from "@/components/StoryScenesEditor";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { getProject } from "@/lib/projects";
-import { getStory, saveStory, type StoryDraft } from "@/lib/story";
+import { getStory, saveStory, type Chapter, type StoryDraft } from "@/lib/story";
 
 const input = "mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 p-3 text-white focus:outline-none focus:ring-2 focus:ring-violet-400";
 const button = "rounded-xl border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-800 disabled:opacity-40";
@@ -155,7 +156,7 @@ function StoryEditor({ projectId }: { projectId: number }) {
   }
 
   const chapter = draft?.chapters.find((item) => item.id === selected);
-  function editChapter(field: "title" | "content", value: string) {
+  function editChapter<K extends keyof Chapter>(field: K, value: Chapter[K]) {
     setDraft((current) => current ? {
       ...current,
       chapters: current.chapters.map((item) => item.id === selected
@@ -168,7 +169,7 @@ function StoryEditor({ projectId }: { projectId: number }) {
     const target = index + direction;
     if (index < 0 || target < 0 || target >= draft.chapters.length) return;
     const chapters = [...draft.chapters];
-    [chapters[index], chapters[target]] = [chapters[target], chapters[index]];
+    chapters.splice(target, 0, chapters.splice(index, 1)[0]);
     setDraft({ ...draft, chapters });
   }
 
@@ -198,6 +199,8 @@ function StoryEditor({ projectId }: { projectId: number }) {
           }} />}
         {draft && !loading && <StudioWorkbench kind="story" projectId={projectId} data={draft} version={version} dirty={dirty} />}
         {draft && !loading && <ProjectImages key={`story-images:${projectId}`} projectId={projectId} />}
+        {draft && !loading && <ManuscriptTools projectId={projectId} chapters={draft.chapters}
+          version={version} dirty={dirty || busy} control={button} onChapter={setSelected} />}
         {draft && !loading && <StoryCharactersEditor key={`story-characters:${projectId}`} projectId={projectId} onStateChanged={setCharacterState} />}
         {draft && !loading && <StoryScenesEditor key={`story-scenes:${projectId}`} projectId={projectId} onStateChanged={setSceneState} />}
         {error && <p role="alert" className="my-4 rounded-xl border border-red-900 p-4 text-red-300">{error}</p>}
@@ -269,6 +272,26 @@ function StoryEditor({ projectId }: { projectId: number }) {
                       setSelected(chapters[0]?.id || "");
                     }}>Remove chapter</button>
                   </div>
+                  <div className="mb-4 flex flex-wrap gap-3">
+                    <label>Chapter position
+                      <select className={input} value={draft.chapters.findIndex(item => item.id === selected)}
+                        onChange={event => move(Number(event.target.value) - draft.chapters.findIndex(item => item.id === selected))}>
+                        {draft.chapters.map((item, index) => <option key={item.id} value={index}>{index + 1}</option>)}
+                      </select>
+                    </label>
+                    <label>Chapter status
+                      <select className={input} value={chapter.status ?? "draft"} onChange={event =>
+                        editChapter("status", event.target.value as Chapter["status"])}>
+                        <option value="outline">Outline</option><option value="draft">Draft</option>
+                        <option value="revising">Revising</option><option value="complete">Complete</option>
+                      </select>
+                    </label>
+                    <label>Word target
+                      <input type="number" min={1} max={100000} step={1} className={input}
+                        value={chapter.target_words ?? ""} onChange={event =>
+                          editChapter("target_words", event.target.value ? event.target.valueAsNumber : null)} />
+                    </label>
+                  </div>
                   <label htmlFor="chapter-title">Chapter title</label>
                   <input id="chapter-title" className={input} maxLength={150} value={chapter.title}
                     onChange={(event) => editChapter("title", event.target.value)} />
@@ -277,7 +300,7 @@ function StoryEditor({ projectId }: { projectId: number }) {
                     rows={16} maxLength={100000} value={chapter.content}
                     placeholder="Start with a moment your reader will remember."
                     onChange={(event) => editChapter("content", event.target.value)} />
-                  <p className="mt-3 text-sm text-zinc-400">{words(chapter.content)} words in this chapter</p>
+                  <p className="mt-3 text-sm text-zinc-400">{words(chapter.content)} words{chapter.target_words ? ` / ${chapter.target_words} target` : ""} in this chapter</p>
                 </fieldset>
               ) : <div className="rounded-2xl border border-dashed border-zinc-800 p-10 text-zinc-400">
                 Add your first chapter to begin writing.

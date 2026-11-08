@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -120,3 +122,95 @@ def save_session(project_id: int, edit: Edit, user: User = Depends(get_current_u
     result = state(row)
     db.commit()
     return result
+
+
+class Transfer(Strict):
+    version: int = Field(ge=1)
+    destination_id: int = Field(gt=0)
+    destination_version: int = Field(ge=0)
+    start_ms: int = Field(ge=0, lt=600_000)
+    end_ms: int = Field(gt=0, le=600_000)
+
+
+def render_mix(db, project_id, user_id, version, output_format, start=0, end=None):
+    from pathlib import Path
+    from tempfile import TemporaryDirectory
+
+    from app.api.v1.audio_assets import stored_audio_path
+    from app.api.v1.video_clip_export import available_tools
+    from app.services.clip_export import ClipError
+    from app.services.music_mixdown import mix
+
+    owned(db, project_id, user_id)
+    row = db.get(MusicSession, project_id, populate_existing=True)
+    if row is None or row.version != version:
+        raise HTTPException(409, "The saved session changed. Reload before rendering.")
+    tracks = row.data["tracks"]
+    duration = max((r["offset_ms"] + r["end_ms"] - r["start_ms"] for t in tracks for r in t["regions"]), default=0)
+    solo = any(t["solo"] and not t["mute"] for t in tracks)
+    audible = [t for t in tracks if not t["mute"] and t["volume"] and (not solo or t["solo"])]
+    if not audible:
+        raise HTTPException(422, "The saved mix needs an audible track.")
+    if end is not None and (end > duration or not 250 <= end - start <= 119_900):
+        raise HTTPException(422, "Choose a range of 0.25 to 119.9 seconds within the saved mix.")
+    tools = available_tools()
+    if tools is None:
+        raise HTTPException(503, "Enable local FFmpeg rendering to export a mix.")
+    assets = []
+    for track in audible:
+        asset = db.get(AudioAsset, track["asset_id"])
+        if asset is None or asset.project_id != project_id or asset.file_size > MAX_AUDIO_BYTES:
+            raise HTTPException(422, "A source is missing or exceeds 12 MiB.")
+        assets.append((track, asset.mime_type, stored_audio_path(asset)))
+    db.close()
+    try:
+        inputs = []
+        for track, media_type, path in assets:
+            with path.open("rb") as source:
+                content = source.read(MAX_AUDIO_BYTES + 1)
+            if not content or len(content) > MAX_AUDIO_BYTES:
+                raise HTTPException(422, "A source is empty or exceeds 12 MiB.")
+            inputs.append((track, media_type, content))
+        with TemporaryDirectory(prefix="indaverse-mix-") as folder:
+            return mix(tools, Path(folder), inputs, output_format, duration, start, end)
+    except OSError as exc:
+        raise HTTPException(422, "An audio source or render file could not be opened.") from exc
+    except ClipError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+
+
+@router.post("/mix/{output_format}")
+def download_mix(project_id: int, output_format: Literal["wav", "mp3"], version: int = Query(ge=1),
+                 user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.api.v1.video_clip_export import render_slot
+    from app.services.export_response import private_download
+
+    if not render_slot.acquire(blocking=False):
+        raise HTTPException(429, "The media renderer is busy. Try again shortly.")
+    try:
+        content = render_mix(db, project_id, user.id, version, output_format)
+        return private_download(content, media_type="audio/wav" if output_format == "wav" else "audio/mpeg",
+                                filename=f"indaverse-mix-v{version}.{output_format}")
+    finally:
+        render_slot.release()
+
+
+@router.post("/send-to-video")
+def send_to_video(project_id: int, data: Transfer, user: User = Depends(get_current_user),
+                  db: Session = Depends(get_db)):
+    from app.api.v1.video_clip_export import render_slot
+    from app.api.v1.video_sequence import load, store_soundtrack
+
+    user_id = user.id
+    destination, _ = load(db, data.destination_id, user_id, version=data.destination_version)
+    if destination is None or not destination.clips:
+        raise HTTPException(422, "Add a video clip to the destination first.")
+    if not render_slot.acquire(blocking=False):
+        raise HTTPException(429, "The media renderer is busy. Try again shortly.")
+    try:
+        content = render_mix(db, project_id, user_id, data.version, "mp3", data.start_ms, data.end_ms)
+        return store_soundtrack(db, data.destination_id, user_id, data.destination_version,
+                                f"Music project {project_id} mix v{data.version}.mp3", "mp3",
+                                data.end_ms - data.start_ms, content)
+    finally:
+        render_slot.release()

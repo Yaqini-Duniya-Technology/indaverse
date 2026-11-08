@@ -41,20 +41,20 @@ Items without a status label are planned. Hosted checks need a passing runner re
 25. **Implemented:** Control track volume, mute and solo during the preview mix.
 26. **Implemented:** Set per-region fades and hear them in the browser preview.
 27. **Implemented:** Write lyric sections and link them to time ranges that highlight during playback.
-28. Export a playable WAV mixdown.
-29. Export a compressed MP3 listening copy.
-30. Reuse a saved mixdown as a Video Studio soundtrack without a manual re-upload.
+28. **Implemented:** Export a playable WAV mixdown.
+29. **Implemented:** Export a compressed MP3 listening copy.
+30. **Implemented:** Reuse a saved mixdown as a Video Studio soundtrack without a manual re-upload.
 
-## 31–40: Story and Game Studio — planned
+## 31–40: Story and Game Studio
 
-31. Reorder manuscript chapters and save the new order.
-32. Add chapter status and writing targets.
-33. Create a character and setting reference board linked to scenes.
-34. Add a rule-based manuscript continuity review that points to relevant chapters.
-35. Export a clean, accessible HTML manuscript.
-36. Export EPUB with a navigable table of contents.
-37. Add Game Studio scene templates for 2D and 3D prototypes.
-38. Add trigger and objective editing with validation.
+31. **Implemented:** Reorder manuscript chapters and save the new order.
+32. **Implemented:** Add chapter status and writing targets.
+33. **Implemented:** Create a character and setting reference board linked to scenes.
+34. **Implemented:** Add a rule-based manuscript continuity review that points to relevant chapters.
+35. **Implemented:** Export a clean, accessible HTML manuscript.
+36. **Implemented:** Export EPUB with a navigable table of contents.
+37. **Implemented:** Add Game Studio scene templates for 2D and 3D prototypes.
+38. **Implemented:** Edit a 3D checkpoint trigger and required gem count, with server-side validation and playable respawn behavior.
 39. Add a saved playtest report for objectives, resets and completion.
 40. Export a self-contained browser build for a supported Zamara scene.
 

@@ -4,6 +4,8 @@ export interface Chapter {
   id: string;
   title: string;
   content: string;
+  status?: "outline" | "draft" | "revising" | "complete";
+  target_words?: number | null;
 }
 export interface StoryDraft {
   title: string;

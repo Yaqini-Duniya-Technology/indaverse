@@ -171,3 +171,57 @@ test('archive and reopen a private saved copy, then verify the downloaded bluepr
   expect(exported.source_project_id).toBe(Number(copyPath.split('/').at(-1)));
   expect(exported.blueprint.title).toMatch(/LEGENDS OF ZAMARA/);
 });
+
+test("reorder chapters, review continuity and download a saved EPUB", async ({page}) => {
+  await account(page);
+  const response = await page.request.post(`${api}/projects`, {data: {name: "Manuscript fixture", project_type: "story"}});
+  const {id} = await response.json();
+  const base = `${api}/projects/${id}/story`;
+  expect((await page.request.put(base, {data: {expected_version: 0, title: "Manuscript fixture", chapters: [
+    {id: "a", title: "Opening", content: "First words."},
+    {id: "b", title: "New ending", content: "", status: "complete"},
+  ]}})).status()).toBe(200);
+  await page.goto(`/projects/${id}/story`);
+  await page.getByRole("button", {name: /2\. New ending/}).click();
+  await page.getByRole("combobox", {name: "Chapter position"}).selectOption("0");
+  await page.getByRole("spinbutton", {name: "Word target"}).fill("450");
+  await page.getByRole("button", {name: "Review continuity"}).click();
+  await expect(page.getByText(/marked complete but has no text/)).toBeVisible();
+  await page.getByRole("button", {name: "Save story", exact: true}).click();
+  await expect.poll(async () => (await (await page.request.get(base)).json()).chapters[0]?.id).toBe("b");
+  await expect(page.getByText("0 words / 450 target in this chapter")).toBeVisible();
+  await page.getByRole("button", {name: "Prepare EPUB manuscript"}).click();
+  const pending = page.waitForEvent("download");
+  await page.getByRole("link", {name: "Download EPUB manuscript"}).click();
+  expect((await pending).suggestedFilename()).toBe("indaverse-manuscript-v2.epub");
+});
+
+test("apply playable templates and exercise a saved 3D checkpoint and objective", async ({page}) => {
+  await account(page);
+  const create = async (dimension: string) => {
+    const response = await page.request.post(`${api}/projects`, {data: {name: "Template fixture", project_type: "game"}});
+    const {id} = await response.json();
+    expect((await page.request.put(`${api}/projects/${id}/game`, {
+      data: {expected_version: 0, title: "Template fixture", dimension},
+    })).status()).toBe(200);
+    return id;
+  };
+  const flat = await create("2d");
+  await page.goto(`/projects/${flat}/game/layout`);
+  await page.getByRole("button", {name: "Use Ground sprint"}).click();
+  await page.getByRole("button", {name: "Save layout", exact: true}).click();
+  await expect(page.getByText(/Saved version 1/)).toBeVisible();
+  const spatial = await create("3d");
+  await page.goto(`/projects/${spatial}/game/scene`);
+  await page.getByRole("button", {name: "Use Checkpoint courtyard"}).click();
+  await page.getByRole("spinbutton", {name: "Gems required (blank for all)"}).fill("0");
+  await page.getByRole("button", {name: "Save scene", exact: true}).click();
+  await expect(page.getByText(/Saved scene version 1/)).toBeVisible();
+  await page.goto(`/projects/${spatial}/game/play`);
+  await page.getByRole("button", {name: "Start", exact: true}).click();
+  await page.keyboard.down("ArrowUp");
+  try {
+    await expect(page.getByText("Checkpoint reached", {exact: true})).toBeVisible();
+    await expect(page.getByText("Completed! Gem objective met and exit reached.")).toBeVisible();
+  } finally { await page.keyboard.up("ArrowUp"); }
+});
