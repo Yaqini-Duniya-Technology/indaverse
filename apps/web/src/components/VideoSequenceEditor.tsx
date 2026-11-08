@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiDownload, apiFetch } from "@/lib/api";
+import VideoDeliveryKit from "@/components/VideoDeliveryKit";
 import VideoCaptionEditor from "@/components/VideoCaptionEditor";
 import { MAX_CUES, validateCues, type CaptionCue } from "@/lib/video-captions.mjs";
 
@@ -411,6 +412,10 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
           Download captions {subtitleFile.type === "srt" ? "SRT" : "WebVTT"}
         </a>}
       </div>
+      <VideoDeliveryKit key={`${saved.version}:${preset}:${burnCaptions}`} base={base} projectId={projectId}
+        version={saved.version} preset={preset} burnCaptions={hasCaptions && burnCaptions}
+        duration={invalid ? 0 : total} hasCaptions={hasCaptions} busy={busy} dirty={dirty}
+        rendererAvailable={saved.renderer_available} control={control} run={run} />
     </>}
     {preview && <div className="space-y-2">
       <p>Full source: {preview.name}</p>

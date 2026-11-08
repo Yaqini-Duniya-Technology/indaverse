@@ -36,3 +36,9 @@ Example: trim a soundtrack to seconds 2–6, start it 1 second into the video, a
 - Enable local FFmpeg using the [single-clip export guide](VIDEO-CLIP-EXPORT.md). Public rendering remains disabled. Project ownership is checked for source reads, uploads, edits and exports.
 - Source bytes are kept privately in the database so reopening works without reattaching files. Clip sources add up to 32 MiB per project; a soundtrack adds up to 8 MiB. Both are included in database backups. Sources are separate from the shared asset library and are not included when duplicating project drafts. Rendering uses temporary files and returns a private MP4 attachment.
 - This is one ordered list of cuts. Multiple soundtrack layers, overlapping transitions, automatic transcription, whole-sequence subtitle import, and background render jobs are later work. Text rendering uses the bundled Pillow font; some characters may not be available.
+
+## Prepare a publishing kit
+
+Save your changes and choose the video format and whether captions should be part of the picture. Under **Publishing kit**, set a poster time (or leave it blank for the midpoint), select subtitle formats, and choose **Prepare publishing kit**.
+
+The ZIP contains the rendered MP4, JPEG poster, a CSV with source and output times, and a publishing checklist. A captioned project also includes a timestamped transcript and any selected subtitle files. `manifest.json` records the saved sequence version, output format, planned duration, poster time, and SHA-256 checksums for the payload files. The kit excludes original media and is downloaded privately. Nothing is posted automatically.
