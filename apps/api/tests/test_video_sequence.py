@@ -289,6 +289,15 @@ def test_soundtrack_renders_trim_offset_fades_and_mix(video_workspace, tmp_path)
     replaced = upload(replacement, 4, "audio/mpeg")
     assert replaced.status_code == 200, replaced.text
     assert replaced.json()["soundtrack"]["settings"]["mode"] == "mix"
+    history = client.get(f"{base}/revisions").json()
+    assert history["version"] == 5
+    assert [item["version"] for item in history["revisions"]] == [5, 4, 3, 2, 1]
+    assert history["revisions"][0]["compatible"]
+    assert not history["revisions"][1]["compatible"]  # Different soundtrack bytes.
+    assert history["revisions"][2]["soundtrack_settings"] == settings
+    client.cookies.set("indaverse_access_token", "2")
+    assert client.get(f"{base}/revisions").status_code == 404
+    client.cookies.set("indaverse_access_token", "1")
     assert client.get(f"{base}/soundtrack?version=5").content == replacement.read_bytes()
     removed = client.delete(f"{base}/soundtrack?version=5")
     assert removed.json()["soundtrack"] is None and removed.json()["version"] == 6

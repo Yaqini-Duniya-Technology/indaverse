@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { apiDownload, apiFetch } from "@/lib/api";
+import SequenceRevisions from "@/components/SequenceRevisions";
+import SequenceSubtitleImport from "@/components/SequenceSubtitleImport";
+import { resetHistory, updateHistory } from "@/lib/edit-history.mjs";
 import SequenceDraftRecovery from "@/components/SequenceDraftRecovery";
-import { recoveryIssue, type Cut, type SoundtrackSettings, type SequenceRecoveryCopy } from "@/lib/sequence-recovery.mjs";
+import { recoveryIssue, type Cut, type SoundtrackSettings, type SequenceRecoveryCopy, type SequenceDraft } from "@/lib/sequence-recovery.mjs";
 import VideoDeliveryKit from "@/components/VideoDeliveryKit";
 import VideoCaptionEditor from "@/components/VideoCaptionEditor";
 import { MAX_CUES, validateCues } from "@/lib/video-captions.mjs";
@@ -19,17 +22,18 @@ const soundtrackTimes = [
   {key: "fade_in_ms", label: "Audio fade in (seconds)", min: 0, max: 5},
   {key: "fade_out_ms", label: "Audio fade out (seconds)", min: 0, max: 5},
 ] as const;
+type Working = SequenceDraft & {fields: Record<string, string>};
+const empty: Working = {clips: [], fields: {}};
 const control = "rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-2 disabled:opacity-50";
 const seconds = (ms: number) => Number.isFinite(ms) ? String(ms / 1000) : "";
 
 export default function VideoSequenceEditor({ projectId, userId }: { projectId: number; userId: number }) {
   const base = `/api/v1/projects/${projectId}/video/sequence`;
-  const [soundtrackSettings, setSoundtrackSettings] = useState<SoundtrackSettings>();
+  const [history, dispatch] = useReducer(updateHistory<Working>, empty, resetHistory);
+  const {clips, fields, soundtrackSettings} = history.current;
   const [soundtrackPreview, setSoundtrackPreview] = useState<string>();
   const [saved, setSaved] = useState<Sequence>();
   const [saveReceipt, setSaveReceipt] = useState(0);
-  const [clips, setClips] = useState<Cut[]>([]);
-  const [fields, setFields] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<{url: string; name: string; id: string}>();
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -53,15 +57,20 @@ export default function VideoSequenceEditor({ projectId, userId }: { projectId: 
 
   useEffect(() => () => { if (soundtrackPreview) URL.revokeObjectURL(soundtrackPreview); }, [soundtrackPreview]);
 
-  function editSoundtrack(change: Partial<SoundtrackSettings>) {
-    setSoundtrackSettings(current => current && {...current, ...change});
-    setResult(undefined);
-  }
-
-  function update(id: string, change: Partial<Cut>) {
-    setClips(current => current.map(item => item.source_id === id ? {...item, ...change} : item));
+  function edit(update: (current: Working) => Working) {
+    dispatch({type: "edit", update});
     setResult(undefined);
     setSubtitleFile(undefined);
+  }
+
+  function editSoundtrack(change: Partial<SoundtrackSettings>) {
+    edit(current => ({...current, soundtrackSettings: current.soundtrackSettings &&
+      {...current.soundtrackSettings, ...change}}));
+  }
+
+  function update(id: string, change: Partial<Cut>, field?: [string, string]) {
+    edit(current => ({...current, clips: current.clips.map(item => item.source_id === id ? {...item, ...change} : item),
+      fields: field ? {...current.fields, [field[0]]: field[1]} : current.fields}));
   }
 
   function applyPlayhead(key: "start_ms" | "end_ms") {
@@ -76,18 +85,15 @@ export default function VideoSequenceEditor({ projectId, userId }: { projectId: 
       setError("Choose a playhead position that leaves at least 0.5 seconds in the cut.");
       return;
     }
-    update(clip.source_id, {[key]: value});
-    setFields(current => ({...current, [`${clip.source_id}-${key}`]: seconds(value)}));
+    update(clip.source_id, {[key]: value}, [`${clip.source_id}-${key}`, seconds(value)]);
     setError("");
     setNotice(`${key === "start_ms" ? "Start" : "End"} of ${preview.name} set to ${seconds(value)} seconds.`);
   }
 
   function install(next: Sequence) {
     setSaved(next);
-    setSoundtrackSettings(next.soundtrack?.settings);
+    dispatch({type: "reset", value: {clips: next.clips, soundtrackSettings: next.soundtrack?.settings, fields: {}}});
     setSoundtrackPreview(undefined);
-    setClips(next.clips);
-    setFields({});
     setPreview(undefined);
     setPreviewReady(false);
     setResult(undefined);
@@ -147,8 +153,7 @@ export default function VideoSequenceEditor({ projectId, userId }: { projectId: 
         setError(issue);
         return;
       }
-      setClips(copy.data.clips);
-      setSoundtrackSettings(copy.data.soundtrackSettings);
+      edit(() => ({...copy.data, fields: {}}));
       setNotice("Browser draft restored to the editor. Save sequence to apply your changes.");
       restored = true;
     });
@@ -161,13 +166,29 @@ export default function VideoSequenceEditor({ projectId, userId }: { projectId: 
   }
 
   function move(index: number, to: number) {
-    setClips(current => {
-      const next = [...current];
+    edit(current => {
+      const next = [...current.clips];
       [next[index], next[to]] = [next[to], next[index]];
-      return next;
+      return {...current, clips: next};
     });
+  }
+
+  function step(type: "undo" | "redo") {
+    dispatch({type});
     setResult(undefined);
     setSubtitleFile(undefined);
+    setNotice(type === "undo" ? "Edit undone." : "Edit redone.");
+  }
+
+  function renderPreview() {
+    if (!saved || busy || dirty || invalid || !clips.length || !saved.renderer_available) return;
+    void run(async signal => {
+      const file = await apiDownload(`${base}/render?version=${saved.version}&preset=${preset}&burn_captions=${hasCaptions && burnCaptions}`,
+        new Blob(), "application/octet-stream", "video/mp4", signal);
+      const vtt = hasCaptions && !burnCaptions ? await fetchSubtitles("vtt", signal) : undefined;
+      if (!signal.aborted) setResult({url: URL.createObjectURL(file), name: `indaverse-${projectId}-sequence.mp4`,
+        vtt: vtt ? URL.createObjectURL(vtt) : undefined});
+    });
   }
 
   return <section className="space-y-4 rounded-2xl border border-zinc-800 bg-black p-6" aria-labelledby="sequence-heading">
@@ -178,6 +199,12 @@ export default function VideoSequenceEditor({ projectId, userId }: { projectId: 
       void run(async signal => install(await apiFetch<Sequence>(base, {signal})));
     }}>{saved ? "Reload saved sequence" : "Open clip sequence"}</button>
     {saved && <>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className={control} disabled={busy || !history.past.length} onClick={() => step("undo")}>Undo sequence edit</button>
+        <button type="button" className={control} disabled={busy || !history.future.length} onClick={() => step("redo")}>Redo sequence edit</button>
+      </div>
+      <SequenceRevisions key={saved.version} base={base} version={saved.version} dirty={dirty} busy={busy}
+        control={control} run={run} onRestore={draft => edit(() => ({...draft, fields: {}}))} />
       <SequenceDraftRecovery userId={userId} projectId={projectId} saved={saved}
         draft={{clips, soundtrackSettings}} dirty={dirty} busy={busy} saveReceipt={saveReceipt}
         onRestore={restoreDraft} control={control} />
@@ -225,9 +252,8 @@ export default function VideoSequenceEditor({ projectId, userId }: { projectId: 
                 <input type="number" min="0" step="0.001" className={`${control} block w-32`} disabled={busy}
                   value={fields[`${cut.source_id}-${key}`] ?? seconds(cut[key])} onChange={event => {
                     const raw = event.target.value;
-                    setFields(current => ({...current, [`${cut.source_id}-${key}`]: raw}));
                     const value = Math.round(event.target.valueAsNumber * 1000);
-                    update(cut.source_id, {[key]: value});
+                    update(cut.source_id, {[key]: value}, [`${cut.source_id}-${key}`, raw]);
                   }} />
               </label>)}
             </div>
@@ -302,7 +328,7 @@ export default function VideoSequenceEditor({ projectId, userId }: { projectId: 
               <button type="button" className={control} disabled={busy || index === 0} onClick={() => move(index, index - 1)}>Move earlier</button>
               <button type="button" className={control} disabled={busy || index === clips.length - 1} onClick={() => move(index, index + 1)}>Move later</button>
               <button type="button" className={control} disabled={busy} onClick={() => {
-                setClips(current => current.filter(item => item.source_id !== cut.source_id));
+                edit(current => ({...current, clips: current.clips.filter(item => item.source_id !== cut.source_id)}));
                 if (preview?.id === cut.source_id) setPreview(undefined);
                 setResult(undefined);
                 setSubtitleFile(undefined);
@@ -311,6 +337,13 @@ export default function VideoSequenceEditor({ projectId, userId }: { projectId: 
           </li>;
         })}
       </ol>
+      <SequenceSubtitleImport cuts={clips.map((cut, index) => ({
+        name: saved.sources.find(source => source.id === cut.source_id)?.name ?? `Clip ${index + 1}`,
+        duration: cut.end_ms - cut.start_ms,
+      }))} signature={JSON.stringify(clips)} disabled={busy || invalid || !clips.length} control={control}
+        onApply={groups => edit(current => ({...current, clips: current.clips.map((cut, i) =>
+          ({...cut, caption: "", caption_cues: groups[i]}))}))} />
+
       <p>Sequence: {Number.isFinite(total) ? `${seconds(total)} seconds` : "invalid duration"} · {dirty ? "Unsaved changes" : `Saved version ${saved.version}`}</p>
       {captionCount > MAX_CUES && <p role="alert">Use no more than 16 captions across the sequence.</p>}
       {invalid && <p role="alert">Use cuts of at least 0.5 seconds within each source and a total of at most 30 seconds.</p>}
@@ -418,12 +451,7 @@ export default function VideoSequenceEditor({ projectId, userId }: { projectId: 
         }}>Save sequence</button>
         <button type="button" className={control}
           disabled={busy || dirty || invalid || !clips.length || !saved.renderer_available}
-          onClick={() => void run(async signal => {
-            const file = await apiDownload(`${base}/render?version=${saved.version}&preset=${preset}&burn_captions=${hasCaptions && burnCaptions}`, new Blob(), "application/octet-stream", "video/mp4", signal);
-            const vtt = hasCaptions && !burnCaptions ? await fetchSubtitles("vtt", signal) : undefined;
-            if (!signal.aborted) setResult({url: URL.createObjectURL(file), name: `indaverse-${projectId}-sequence.mp4`,
-              vtt: vtt ? URL.createObjectURL(vtt) : undefined});
-          })}>Render saved sequence</button>
+          onClick={renderPreview}>Render saved sequence</button>
         {(["srt", "vtt"] as const).map(type => <button key={type} type="button" className={control}
           disabled={busy || dirty || !hasCaptions} onClick={() => void run(async signal => {
             const file = await fetchSubtitles(type, signal);
@@ -436,7 +464,8 @@ export default function VideoSequenceEditor({ projectId, userId }: { projectId: 
       <VideoDeliveryKit key={`${saved.version}:${preset}:${burnCaptions}`} base={base} projectId={projectId}
         version={saved.version} preset={preset} burnCaptions={hasCaptions && burnCaptions}
         duration={invalid ? 0 : total} hasCaptions={hasCaptions} busy={busy} dirty={dirty}
-        rendererAvailable={saved.renderer_available} control={control} run={run} />
+        rendererAvailable={saved.renderer_available} control={control} run={run}
+        preview={renderPreview} previewReady={!!result} />
     </>}
     {preview && <div className="space-y-2">
       <p>Full source: {preview.name}</p>
@@ -448,7 +477,7 @@ export default function VideoSequenceEditor({ projectId, userId }: { projectId: 
         <button type="button" className={control} disabled={busy || !previewReady} onClick={() => applyPlayhead("end_ms")}>Set end from playhead</button>
       </div>
     </div>}
-    {result && <div className="space-y-2">
+    {result && <div id="sequence-output-preview" className="space-y-2">
       <video key={result.url} className="max-h-80 max-w-full" src={result.url} controls preload="metadata" aria-label="Rendered sequence preview">
         {result.vtt && <track kind="captions" src={result.vtt} srcLang="und" label="Project captions" default />}
       </video>

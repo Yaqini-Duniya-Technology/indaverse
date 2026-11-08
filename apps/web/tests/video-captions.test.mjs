@@ -17,3 +17,11 @@ test("refuse malformed timing, overlapping cues, and cues beyond a trimmed cut",
   assert.throws(() => parseSrt(one + "\n\n2\n00:00:00,700 --> 00:00:01,000\nOverlap", 1500), /cannot overlap/);
   assert.throws(() => parseSrt(one.replace(",800", ".800"), 1000), /timestamps/);
 });
+
+test("whole-sequence import splits a cue and maps times relative to each cut", async () => {
+  const {mapSequenceSrt} = await import("../src/lib/video-captions.mjs");
+  const srt = "1\n00:00:00,600 --> 00:00:01,400\nAcross the cut";
+  const groups = mapSequenceSrt(srt, [1000, 1200]);
+  assert.deepEqual(groups.map(group => group.map(cue => [cue.start_ms, cue.end_ms])), [[[600, 1000]], [[0, 400]]]);
+  assert.throws(() => mapSequenceSrt(srt, [1301, 1000]), /fit inside/);
+});

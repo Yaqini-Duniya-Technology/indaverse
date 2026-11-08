@@ -4,3 +4,5 @@ export const MAX_CUES: number;
 export const MAX_SRT_BYTES: number;
 export function validateCues(cues: CaptionCue[], duration: number): string;
 export function parseSrt(raw: string, duration: number): CaptionCue[];
+
+export function mapSequenceSrt(raw: string, durations: number[]): CaptionCue[][];

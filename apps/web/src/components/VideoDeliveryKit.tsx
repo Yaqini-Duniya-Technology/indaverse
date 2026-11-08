@@ -6,12 +6,12 @@ import { apiDownload } from "@/lib/api";
 type Props = {
   base: string; projectId: number; version: number; preset: string; burnCaptions: boolean;
   duration: number; hasCaptions: boolean; busy: boolean; dirty: boolean; rendererAvailable: boolean;
-  control: string; run: (action: (signal: AbortSignal) => Promise<void>) => Promise<void>;
+  preview: () => void; previewReady: boolean; control: string; run: (action: (signal: AbortSignal) => Promise<void>) => Promise<void>;
 };
 
 export default function VideoDeliveryKit({
   base, projectId, version, preset, burnCaptions, duration, hasCaptions,
-  busy, dirty, rendererAvailable, control, run,
+  busy, dirty, rendererAvailable, control, run, preview, previewReady,
 }: Props) {
   const [poster, setPoster] = useState("");
   const [srt, setSrt] = useState(true);
@@ -58,6 +58,9 @@ export default function VideoDeliveryKit({
       {hasCaptions ? ", plus a timestamped transcript and selected subtitle formats." : "."}</p>
     {blocker && <p className="text-sm" role="status">{blocker}</p>}
     <div className="flex flex-wrap gap-2">
+      <button type="button" className={control} disabled={dirty || duration <= 0 || !rendererAvailable}
+        onClick={preview}>Preview kit video</button>
+      {previewReady && <a className={control} href="#sequence-output-preview">Watch preview</a>}
       <button type="button" className={control} disabled={!!blocker} onClick={prepare}>Prepare publishing kit</button>
       {kit && !blocker && <a className={control} href={kit} download={`indaverse-${projectId}-delivery.zip`}>Download publishing kit ZIP</a>}
     </div>

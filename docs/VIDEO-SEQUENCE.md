@@ -49,3 +49,13 @@ The ZIP contains the rendered MP4, JPEG poster, a CSV with source and output tim
 Choose **Keep a sequence draft in this browser** before editing. Open the same project and its sequence after a reload, then choose **Restore sequence draft**. This puts the edits back in the editor; use **Save sequence** to publish them to your saved sequence. A draft is scoped to the account and project and contains settings only, without any video or audio files.
 
 If another tab changed the saved sequence, recovery refuses to apply the older draft. **Download sequence draft JSON** keeps the older settings for reference. Use **Delete browser draft** or **Stop keeping a browser draft** to remove local copies. Recovery does not sync across devices and clearing browser storage removes the copies.
+
+## Undo, revisions and delivery review
+
+**Undo sequence edit** and **Redo sequence edit** step through up to 50 edits to clip settings, captions and soundtrack settings. History resets when you load or save a sequence. Removing a clip from a working draft can be undone before saving; a saved deletion removes that source file.
+
+Use **Load sequence revisions** to inspect the settings of up to 30 saved versions. **Restore revision to editor** requires the same video sources and soundtrack file. A restore only edits the working copy until you explicitly save it as a new version. History starts when a sequence is first changed with this version of Studio.
+
+To import subtitles against the whole timeline, use **Choose sequence SRT**. Review the proposed mapping, then choose **Replace captions in working sequence**. Cues crossing a cut boundary are split; segments shorter than 0.1 seconds and imports beyond caption limits are rejected.
+
+In the Publishing kit, use **Preview kit video** to review the current format, caption style and audio before downloading the ZIP.
