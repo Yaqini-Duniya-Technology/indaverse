@@ -2,18 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiDownload, apiFetch } from "@/lib/api";
+import SequenceDraftRecovery from "@/components/SequenceDraftRecovery";
+import { recoveryIssue, type Cut, type SoundtrackSettings, type SequenceRecoveryCopy } from "@/lib/sequence-recovery.mjs";
 import VideoDeliveryKit from "@/components/VideoDeliveryKit";
 import VideoCaptionEditor from "@/components/VideoCaptionEditor";
-import { MAX_CUES, validateCues, type CaptionCue } from "@/lib/video-captions.mjs";
+import { MAX_CUES, validateCues } from "@/lib/video-captions.mjs";
 
-type Cut = { source_id: string; start_ms: number; end_ms: number; title?: string; muted?: boolean; volume_percent?: number; fade_edges?: boolean;
-  framing?: "fit" | "fill"; title_position?: "top" | "bottom"; title_duration_ms?: number; caption?: string; caption_cues?: CaptionCue[] };
 type Preset = "landscape" | "vertical" | "square";
 type Source = { id: string; name: string; duration_ms: number };
-type SoundtrackSettings = {
-  start_ms: number; end_ms: number; offset_ms: number; volume_percent: number;
-  fade_in_ms: number; fade_out_ms: number; mode: "mix" | "replace";
-};
 type Soundtrack = { name: string; duration_ms: number; media_type: string; settings: SoundtrackSettings };
 type Sequence = { version: number; clips: Cut[]; sources: Source[]; renderer_available: boolean; soundtrack: Soundtrack | null };
 const soundtrackTimes = [
@@ -24,13 +20,14 @@ const soundtrackTimes = [
   {key: "fade_out_ms", label: "Audio fade out (seconds)", min: 0, max: 5},
 ] as const;
 const control = "rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-2 disabled:opacity-50";
-const seconds = (ms: number) => String(ms / 1000);
+const seconds = (ms: number) => Number.isFinite(ms) ? String(ms / 1000) : "";
 
-export default function VideoSequenceEditor({ projectId }: { projectId: number }) {
+export default function VideoSequenceEditor({ projectId, userId }: { projectId: number; userId: number }) {
   const base = `/api/v1/projects/${projectId}/video/sequence`;
   const [soundtrackSettings, setSoundtrackSettings] = useState<SoundtrackSettings>();
   const [soundtrackPreview, setSoundtrackPreview] = useState<string>();
   const [saved, setSaved] = useState<Sequence>();
+  const [saveReceipt, setSaveReceipt] = useState(0);
   const [clips, setClips] = useState<Cut[]>([]);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<{url: string; name: string; id: string}>();
@@ -138,6 +135,26 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
     return ranges;
   }, []);
 
+  async function restoreDraft(copy: SequenceRecoveryCopy) {
+    if (dirty || busy) return false;
+    let restored = false;
+    await run(async signal => {
+      const latest = await apiFetch<Sequence>(base, {signal});
+      if (signal.aborted) return;
+      install(latest);
+      const issue = recoveryIssue(copy, latest);
+      if (issue) {
+        setError(issue);
+        return;
+      }
+      setClips(copy.data.clips);
+      setSoundtrackSettings(copy.data.soundtrackSettings);
+      setNotice("Browser draft restored to the editor. Save sequence to apply your changes.");
+      restored = true;
+    });
+    return restored;
+  }
+
   function fetchSubtitles(type: "srt" | "vtt", signal: AbortSignal) {
     const mime = type === "srt" ? "application/x-subrip" : "text/vtt; charset=utf-8";
     return apiDownload(`${base}/captions.${type}?version=${saved?.version}`, undefined, "application/octet-stream", mime, signal);
@@ -161,6 +178,9 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
       void run(async signal => install(await apiFetch<Sequence>(base, {signal})));
     }}>{saved ? "Reload saved sequence" : "Open clip sequence"}</button>
     {saved && <>
+      <SequenceDraftRecovery userId={userId} projectId={projectId} saved={saved}
+        draft={{clips, soundtrackSettings}} dirty={dirty} busy={busy} saveReceipt={saveReceipt}
+        onRestore={restoreDraft} control={control} />
       {!saved.renderer_available && <p role="status">Enable local FFmpeg processing to add clips or render.</p>}
       <label className="block">Add source MP4 (8 MiB per file)
         <input type="file" accept="video/mp4,.mp4" className={`${control} mt-1 block w-full`}
@@ -392,6 +412,7 @@ export default function VideoSequenceEditor({ projectId }: { projectId: number }
           if (clips.length < saved.clips.length && !window.confirm("Remove the selected clips and their saved source files?")) return;
           void run(async signal => {
             install(await apiFetch<Sequence>(base, {method: "PUT", body: {version: saved.version, clips, soundtrack_settings: soundtrackDirty ? soundtrackSettings : undefined}, signal}));
+            setSaveReceipt(receipt => receipt + 1);
             setNotice("Sequence saved.");
           });
         }}>Save sequence</button>

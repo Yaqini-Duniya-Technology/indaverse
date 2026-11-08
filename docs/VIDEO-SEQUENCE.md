@@ -42,3 +42,10 @@ Example: trim a soundtrack to seconds 2–6, start it 1 second into the video, a
 Save your changes and choose the video format and whether captions should be part of the picture. Under **Publishing kit**, set a poster time (or leave it blank for the midpoint), select subtitle formats, and choose **Prepare publishing kit**.
 
 The ZIP contains the rendered MP4, JPEG poster, a CSV with source and output times, and a publishing checklist. A captioned project also includes a timestamped transcript and any selected subtitle files. `manifest.json` records the saved sequence version, output format, planned duration, poster time, and SHA-256 checksums for the payload files. The kit excludes original media and is downloaded privately. Nothing is posted automatically.
+
+
+## Recover unsaved edits
+
+Choose **Keep a sequence draft in this browser** before editing. Open the same project and its sequence after a reload, then choose **Restore sequence draft**. This puts the edits back in the editor; use **Save sequence** to publish them to your saved sequence. A draft is scoped to the account and project and contains settings only, without any video or audio files.
+
+If another tab changed the saved sequence, recovery refuses to apply the older draft. **Download sequence draft JSON** keeps the older settings for reference. Use **Delete browser draft** or **Stop keeping a browser draft** to remove local copies. Recovery does not sync across devices and clearing browser storage removes the copies.

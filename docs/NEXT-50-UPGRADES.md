@@ -26,7 +26,7 @@ Items without a status label are planned. Hosted checks need a passing runner re
 13. **CI check added:** Start and reap the API through the launcher on a Windows runner, require FFmpeg and FFprobe, then render and decode an MP4 and a publishing kit.
 14. **CI check added:** Hold a render after it snapshots a saved version while two PostgreSQL writers contend. Verify one save wins, the other is rejected, and the renderer keeps the original clip and audio snapshot.
 15. **Implemented:** Chromium workflow checks that a signed-out browser cannot fetch a source, and that a different signed-in account cannot fetch that source or export its publishing kit.
-16. Persist sequence editor drafts locally with version-aware recovery.
+16. **Implemented:** Keep opt-in browser drafts of clip, caption, and soundtrack edits per account and project. Recover only against a matching server version; stale edits can be downloaded for reference.
 17. Add undo and redo for in-session cut, caption and soundtrack changes.
 18. Add a sequence revision list with preview and explicit restore.
 19. Import whole-sequence subtitles with a preview of how cues map to cuts.
