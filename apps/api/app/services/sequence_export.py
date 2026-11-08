@@ -14,6 +14,9 @@ MAX_SOURCE_BYTES = 8 * 1024 * 1024
 MAX_SEQUENCE_MS = 30_000
 MIN_SEGMENT_MS = 500
 FADE_SECONDS = 0.25
+MAX_CUES_PER_CLIP = 6
+MAX_CUES = 16
+MIN_CUE_MS = 100
 
 
 Preset = Literal["landscape", "vertical", "square"]
@@ -28,7 +31,7 @@ def text_card(path: Path, text: str, size: tuple[int, int], position: str, *, ca
     width, height = size
     canvas = Image.new("RGBA", size)
     draw = ImageDraw.Draw(canvas)
-    lines = "\n".join(wrap(text, width=30)) if caption else text
+    lines = "\n".join(line for part in text.splitlines() for line in wrap(part, width=30)) if caption else text
     limit = width - 64
     for font_size in range(27 if not caption else 23, 8, -1):
         font = ImageFont.load_default(size=font_size)
@@ -40,31 +43,43 @@ def text_card(path: Path, text: str, size: tuple[int, int], position: str, *, ca
     w, h = right - left, bottom - top
     x = (width - w) // 2
     y = {"top": 26, "bottom": height - 42 - h,
-         "above-caption": height - 150 - h, "caption": height - 24 - h}[position]
+         "above-caption": height - 150 - h, "below-caption": 150,
+         "caption": height - 24 - h, "caption-top": 26}[position]
     draw.rounded_rectangle((x - 14, y - 8, x + w + 14, y + h + 8),
                            radius=8, fill=(0, 0, 0, 206))
     draw.multiline_text((x - left, y - top), lines, font=font, fill="white", align="center")
     canvas.save(path)
 
 
-def srt_timestamp(milliseconds: int) -> str:
+def timestamp(milliseconds: int, separator: str) -> str:
     seconds, ms = divmod(milliseconds, 1000)
     minutes, second = divmod(seconds, 60)
     hour, minute = divmod(minutes, 60)
-    return f"{hour:02d}:{minute:02d}:{second:02d},{ms:03d}"
+    return f"{hour:02d}:{minute:02d}:{second:02d}{separator}{ms:03d}"
 
 
-def captions_srt(cuts: list[dict]) -> bytes:
+def clip_cues(cut: dict) -> list[dict]:
+    if cues := cut.get("caption_cues"):
+        return cues
+    if caption := cut.get("caption"):
+        return [{"start_ms": 0, "end_ms": cut["end_ms"] - cut["start_ms"], "text": caption}]
+    return []
+
+
+def captions_file(cuts: list[dict], *, vtt=False) -> bytes:
     cues = []
-    start = 0
+    offset = 0
+    separator = "." if vtt else ","
     for cut in cuts:
-        end = start + cut["end_ms"] - cut["start_ms"]
-        if text := cut.get("caption"):
-            cues.append(
-                f"{len(cues) + 1}\n{srt_timestamp(start)} --> {srt_timestamp(end)}\n{escape(text, quote=False)}\n"
-            )
-        start = end
-    return "\n".join(cues).encode("utf-8")
+        for cue in clip_cues(cut):
+            start, end = (timestamp(offset + cue[key], separator) for key in ("start_ms", "end_ms"))
+            position = " line:10%" if vtt and cue.get("position") == "top" else ""
+            number = "" if vtt else f"{len(cues) + 1}\n"
+            cues.append(f"{number}{start} --> {end}{position}\n{escape(cue['text'], quote=False)}\n")
+        offset += cut["end_ms"] - cut["start_ms"]
+    if not cues:
+        return b""
+    return (("WEBVTT\n\n" if vtt else "") + "\n".join(cues)).encode("utf-8")
 
 
 def render(tools: tuple[str, str], directory: Path, items: list[tuple[dict, bytes]],
@@ -91,23 +106,25 @@ def render(tools: tuple[str, str], directory: Path, items: list[tuple[dict, byte
                    f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2")
         picture = f"base{index}"
         filters.append(f"[{index}:v:0]setpts=PTS-STARTPTS,{framing},setsar=1,fps=30,format=yuv420p[{picture}]")
-        caption = cut.get("caption") if burn_captions else None
+        captions = clip_cues(cut) if burn_captions else []
         title_position = cut.get("title_position", "bottom")
-        if caption and title_position == "bottom":
-            title_position = "above-caption"
-        for kind, text, position, until in (
-            ("title", cut.get("title"), title_position, cut.get("title_duration_ms", 0)),
-            ("caption", caption, "caption", 0),
-        ):
-            if not text:
-                continue
-            card = directory / f"{kind}-{index}.png"
-            text_card(card, text, (width, height), position, caption=kind == "caption")
+        positions = {cue.get("position", "bottom") for cue in captions}
+        if title_position in positions:
+            title_position = "above-caption" if title_position == "bottom" else "below-caption"
+        cards = []
+        if title := cut.get("title"):
+            cards.append((title, title_position, 0, cut.get("title_duration_ms", 0), False))
+        for cue in captions:
+            position = "caption-top" if cue.get("position") == "top" else "caption"
+            cards.append((cue["text"], position, cue["start_ms"], cue["end_ms"], True))
+        for card_index, (text, position, begin, until, is_caption) in enumerate(cards):
+            target = f"overlay{index}_{card_index}"
+            card = directory / f"{target}.png"
+            text_card(card, text, (width, height), position, caption=is_caption)
             overlay_index = len(items) + len(overlays)
             overlays.append(["-threads", "1", "-protocol_whitelist", "file",
                              "-f", "image2", "-pattern_type", "none", "-c:v", "png", "-i", str(card)])
-            enable = f":enable='lt(t,{until / 1000:.3f})'" if until else ""
-            target = f"{kind}{index}"
+            enable = f":enable='gte(t,{begin / 1000:.3f})*lt(t,{until / 1000:.3f})'" if until else ""
             filters.append(
                 f"[{picture}][{overlay_index}:v]overlay=eof_action=repeat{enable},format=yuv420p[{target}]"
             )

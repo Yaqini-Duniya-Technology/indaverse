@@ -23,6 +23,22 @@ from app.services.export_response import private_download
 router = APIRouter(prefix="/projects/{project_id}/video/sequence", tags=["Video Studio"])
 
 
+class CaptionCue(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    start_ms: int = Field(ge=0, lt=export.MAX_SEQUENCE_MS)
+    end_ms: int = Field(gt=0, le=export.MAX_SEQUENCE_MS)
+    text: str = Field(min_length=1, max_length=90)
+    position: Literal["top", "bottom"] = "bottom"
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        lines = value.split("\n")
+        if len(lines) > 2 or any(not line.strip() or not line.isprintable() for line in lines):
+            raise ValueError("Use one or two nonempty lines of printable caption text.")
+        return "\n".join(line.strip() for line in lines)
+
+
 class Cut(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     source_id: str = Field(pattern="^[a-f0-9]{32}$")
@@ -37,6 +53,7 @@ class Cut(BaseModel):
     title_position: Literal["top", "bottom"] = "bottom"
     title_duration_ms: int = Field(default=0, ge=0, le=export.MAX_SEQUENCE_MS)
     caption: str = Field(default="", max_length=90)
+    caption_cues: list[CaptionCue] = Field(default_factory=list, max_length=export.MAX_CUES_PER_CLIP)
 
     @field_validator("title", "caption")
     @classmethod
@@ -266,6 +283,7 @@ def save_sequence(project_id: int, edit: SequenceEdit,
     sequence, sources = load(db, project_id, user.id, lock=True, version=edit.version)
     kept = set()
     total = 0
+    cue_count = 0
     for clip in edit.clips:
         source = sources.get(clip.source_id)
         if source is None or clip.source_id in kept:
@@ -273,10 +291,21 @@ def save_sequence(project_id: int, edit: SequenceEdit,
         duration = clip.end_ms - clip.start_ms
         if duration < export.MIN_SEGMENT_MS or clip.end_ms > source.duration_ms:
             raise HTTPException(422, "Each cut must be at least 0.5 seconds and within its source.")
+        if clip.caption and clip.caption_cues:
+            raise HTTPException(422, "Choose a full-cut caption or timed captions for each clip.")
+        previous_end = 0
+        clip.caption_cues.sort(key=lambda cue: cue.start_ms)
+        for cue in clip.caption_cues:
+            if cue.start_ms < previous_end or cue.end_ms > duration or cue.end_ms - cue.start_ms < export.MIN_CUE_MS:
+                raise HTTPException(422, "Captions must be at least 0.1 seconds, fit inside the cut, and not overlap.")
+            previous_end = cue.end_ms
+        cue_count += len(clip.caption_cues) or int(bool(clip.caption))
         kept.add(clip.source_id)
         total += duration
     if total > export.MAX_SEQUENCE_MS:
         raise HTTPException(422, "The sequence must be 30 seconds or shorter.")
+    if cue_count > export.MAX_CUES:
+        raise HTTPException(422, "Use no more than 16 captions across the sequence.")
     clips = [clip.model_dump(exclude_defaults=True) for clip in edit.clips]
     soundtrack_changed = False
     if edit.soundtrack_settings is not None:
@@ -314,15 +343,16 @@ def preview_source(project_id: int, source_id: str,
     return Response(source.content, media_type="video/mp4", headers={"Cache-Control": "no-store"})
 
 
-@router.get("/captions.srt")
-def download_captions(project_id: int, version: int = Query(ge=0),
+@router.get("/captions.{extension}")
+def download_captions(project_id: int, extension: Literal["srt", "vtt"], version: int = Query(ge=0),
                       user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     sequence, _ = load(db, project_id, user.id, lock=True, version=version)
-    content = export.captions_srt(sequence.clips if sequence else [])
+    vtt = extension == "vtt"
+    content = export.captions_file(sequence.clips if sequence else [], vtt=vtt)
     if not content:
         raise HTTPException(422, "Save at least one caption before downloading.")
-    return private_download(content, media_type="application/x-subrip",
-                            filename=f"indaverse-{project_id}-captions.srt")
+    return private_download(content, media_type="text/vtt; charset=utf-8" if vtt else "application/x-subrip",
+                            filename=f"indaverse-{project_id}-captions.{extension}")
 
 
 @router.post("/render")
