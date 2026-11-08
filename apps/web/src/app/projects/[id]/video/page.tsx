@@ -29,6 +29,7 @@ function VideoEditor({ projectId }: { projectId: number }) {
   const [version, setVersion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
+  const [ownerId, setOwnerId] = useState<number>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -76,6 +77,7 @@ function VideoEditor({ projectId }: { projectId: number }) {
         }
         if (!active) return;
         apply(saved ?? { ...blank, title: project.name, shots: [] }, saved?.version ?? 0);
+        setOwnerId(project.user_id);
         setReady(true);
       } catch (err) {
         if (active) setError(err instanceof Error ? err.message : "Unable to load Video Studio.");
@@ -250,7 +252,7 @@ function VideoEditor({ projectId }: { projectId: number }) {
           }} />
         <StudioWorkbench kind="video" projectId={projectId} data={data} version={version} dirty={dirty} />
         <VideoClipExport key={`clip-${projectId}`} projectId={projectId} />
-        <VideoSequenceEditor key={`sequence-${projectId}`} projectId={projectId} />
+        {ownerId !== undefined && <VideoSequenceEditor key={`sequence-${projectId}`} projectId={projectId} userId={ownerId} />}
         <fieldset disabled={saving} className="space-y-8">
           <legend className="sr-only">Video script and shots</legend>
           <section className="rounded-2xl border border-zinc-800 bg-black p-6">
