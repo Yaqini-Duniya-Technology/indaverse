@@ -19,12 +19,12 @@ This run starts from the Video Studio caption milestone (PR #11). The numbers be
 
 ## 11–20: Release readiness and resilient editing
 
-Items without a completion label are planned.
+Items without a status label are planned. Hosted checks need a passing runner result before release.
 
 11. **Checked:** Review the stacked PRs against the release branch. PR #2 targets main, PR #3 is in the release branch, and PRs #4–11 each target their immediate predecessor. A local merge simulation against both fetched release and main had no conflicts. The expansion commits are absent from those targets, so merging later drafts into their immediate bases does not by itself release the stack.
-12. Run the expansion migration chain on a disposable PostgreSQL backup and exercise rollback where supported.
-13. Add Windows CI for launcher, FFmpeg detection, and a real rendering smoke test.
-14. Add concurrent sequence edit and render snapshot coverage on PostgreSQL.
+12. **CI check added:** Back up a seeded release database, restore it to another disposable PostgreSQL database, upgrade through sequences and soundtracks, then rehearse rollback and verify preserved rows.
+13. **CI check added:** Start and reap the API through the launcher on a Windows runner, require FFmpeg and FFprobe, then render and decode an MP4 and a publishing kit.
+14. **CI check added:** Hold a render after it snapshots a saved version while two PostgreSQL writers contend. Verify one save wins, the other is rejected, and the renderer keeps the original clip and audio snapshot.
 15. **Implemented:** Chromium workflow checks that a signed-out browser cannot fetch a source, and that a different signed-in account cannot fetch that source or export its publishing kit.
 16. Persist sequence editor drafts locally with version-aware recovery.
 17. Add undo and redo for in-session cut, caption and soundtrack changes.
