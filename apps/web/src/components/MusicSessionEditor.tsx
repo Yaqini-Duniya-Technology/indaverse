@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import MusicMixDelivery from "@/components/MusicMixDelivery";
 import { apiFetch } from "@/lib/api";
 import { API_URL, type UploadedAudio } from "@/lib/music";
 
@@ -315,6 +316,8 @@ export default function MusicSessionEditor({projectId, assets}: {projectId: numb
           <button type="button" className={control} disabled={!data.tracks.length} onClick={play}>Preview session mix</button>
           <button type="button" className={control} disabled={position === undefined} onClick={stop}>Stop session preview</button>
         </div>
+        <MusicMixDelivery key={saved.version} base={base} version={saved.version} duration={duration}
+          dirty={dirty} busy={busy} control={control} run={run} />
         <p>{dirty ? "Unsaved music session edits" : `Saved music session version ${saved.version}`}
           {position !== undefined ? ` · Preview at ${(position / 1000).toFixed(1)} s` : ""}</p>
       </>}

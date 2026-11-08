@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { ApiError } from "@/lib/api";
 import { getGame } from "@/lib/game";
 import {
-  defaultScene, getGameScene, saveGameScene,
+  defaultScene, courtyardScene, getGameScene, saveGameScene,
   type SceneLayout, type ScenePoint,
 } from "@/lib/gameScene";
 import styles from "./scene.module.css";
@@ -259,6 +259,34 @@ function SceneEditor({ projectId }: { projectId: number }) {
         }}
       />
       <fieldset disabled={busy}>
+        <section className={styles.panel}>
+          <h2>3D scene templates</h2>
+          <button type="button" onClick={() => {
+            if (dirty && !window.confirm("Replace unsaved scene edits with this template?")) return;
+            change(defaultScene()); setMapEpoch(value => value + 1); setSelected("spawn");
+          }}>Use Island jumps</button>{" "}
+          <button type="button" onClick={() => {
+            if (dirty && !window.confirm("Replace unsaved scene edits with this template?")) return;
+            change(courtyardScene()); setMapEpoch(value => value + 1); setSelected("spawn");
+          }}>Use Checkpoint courtyard</button>
+        </section>
+        <section className={styles.panel}>
+          <h2>Checkpoint trigger and exit objective</h2>
+          <label>Gems required (blank for all)
+            <input type="number" min={0} max={data.collectibles.length} step={1} value={data.required_gems ?? ""}
+              onChange={event => change({...data, required_gems: event.target.value === "" ? undefined : event.target.valueAsNumber})} />
+          </label>
+          {data.required_gems !== undefined && data.required_gems > data.collectibles.length &&
+            <p role="alert">The goal exceeds the number of gems in this scene.</p>}
+          <p>Set a checkpoint on a platform. Walking into its ring changes where the player respawns.</p>
+          {data.checkpoint ? <>
+            <div className={styles.fields}>{(["x", "y", "z"] as const).map(axis => <NumberField
+              key={axis} label={`Checkpoint ${axis.toUpperCase()}`} value={data.checkpoint![axis]}
+              min={axis === "y" ? 0 : -50} max={axis === "y" ? 25 : 50}
+              onChange={value => change({...data, checkpoint: {...data.checkpoint!, [axis]: value}})} />)}</div>
+            <button type="button" onClick={() => change({...data, checkpoint: undefined})}>Remove checkpoint trigger</button>
+          </> : <button type="button" onClick={() => change({...data, checkpoint: {...data.spawn}})}>Add checkpoint trigger</button>}
+        </section>
         <SceneInspector layout={data} selected={selected}
           disabled={busy} onChange={change} />
         <SceneMap key={mapEpoch} layout={data} disabled={busy}

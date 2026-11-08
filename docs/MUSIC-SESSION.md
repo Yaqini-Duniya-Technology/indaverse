@@ -6,6 +6,10 @@
 4. Under **Session lyrics**, add a section and optionally set its start and end on the session timeline. It highlights during playback. This text is separate from the main song sheet.
 5. **Save music session** preserves the arrangement and lyrics. Reload to see the saved session, and choose **Load waveform** if you need to inspect a source again.
 
-A session supports up to four mono or stereo sources of at most 12 MiB and five minutes each, four regions per track, and a ten-minute timeline. Preview needs a browser that can decode the source. Removing a session track leaves its original file in the Audio Library. Deleting a source in the library makes it unavailable to the session; remove the missing reference before saving. Preview is not a WAV or MP3 export.
+A session supports up to four mono or stereo sources of at most 12 MiB and five minutes each, four regions per track, and a ten-minute timeline. Preview needs a browser that can decode the source. Removing a session track leaves its original file in the Audio Library. Deleting a source in the library makes it unavailable to the session; remove the missing reference before saving.
 
 Apply the Alembic migrations before opening these editors against an existing database. The new migrations add the sequence history and music session tables; downgrading removes those records.
+
+## Export and send a mix
+
+Save the session, then download a stereo WAV or an MP3 listening copy. Exports use the saved tracks, regions, fades, levels, and mute/solo settings. Local rendering requires FFmpeg and the local media tools setting. To use the mix in Video Studio, choose a project you own, select a range under two minutes, and send it to the saved video sequence. If there is already a soundtrack, confirm replacement in the editor.

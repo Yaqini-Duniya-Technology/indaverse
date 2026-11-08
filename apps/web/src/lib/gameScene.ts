@@ -24,6 +24,8 @@ export interface SceneLayout {
   exit: ScenePoint;
   platforms: ScenePlatform[];
   collectibles: SceneCollectible[];
+  checkpoint?: ScenePoint;
+  required_gems?: number;
 }
 
 export interface GameScene {
@@ -49,6 +51,18 @@ export function defaultScene(): SceneLayout {
       { id: "gem-2", x: 2, y: 1.65, z: -4 },
       { id: "gem-3", x: 0, y: 0.8, z: -13 },
     ],
+  };
+}
+
+export function courtyardScene(): SceneLayout {
+  return {
+    spawn: {x: 0, y: 0, z: 8}, exit: {x: 0, y: 0, z: -8},
+    platforms: [{id: "courtyard", x: 0, z: 0, w: 14, d: 22, top: 0}],
+    collectibles: [
+      {id: "west", x: -3, y: 0.8, z: 3},
+      {id: "east", x: 3, y: 0.8, z: -3},
+    ],
+    checkpoint: {x: 0, y: 0, z: 0}, required_gems: 1,
   };
 }
 

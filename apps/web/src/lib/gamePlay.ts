@@ -33,6 +33,16 @@ export function defaultLayout(): PlayLayout {
   };
 }
 
+export function sprintLayout(): PlayLayout {
+  return {
+    spawn: {x: 35, y: 336}, exit: {x: 742, y: 320},
+    platforms: [{id: "ground", x: 0, y: 370, w: 800, h: 30}],
+    collectibles: [
+      {id: "first", x: 230, y: 350}, {id: "second", x: 550, y: 350},
+    ],
+  };
+}
+
 export function getPlaySettings(projectId: number): Promise<PlaySettings> {
   return apiFetch<PlaySettings>(`/api/v1/projects/${projectId}/game/play-settings`);
 }
