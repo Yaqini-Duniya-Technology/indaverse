@@ -25,3 +25,8 @@ jobs:
       - run: python scripts/test_postgres.py
         env:
           INDAVERSE_PG_TEST_ADMIN_URL: postgresql://postgres:isolated-ci-only@127.0.0.1:55432/postgres
+      - name: Restore, migrate, and roll back a synthetic release backup
+        run: python scripts/test_postgres_migrations.py
+        env:
+          INDAVERSE_PG_TEST_ADMIN_URL: postgresql://postgres:isolated-ci-only@127.0.0.1:55432/postgres
+          INDAVERSE_PG_TEST_CONTAINER: ${{ job.services.postgres.id }}
