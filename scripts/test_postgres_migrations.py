@@ -14,7 +14,7 @@ from psycopg import sql
 API = Path(__file__).resolve().parents[1] / "apps/api"
 RELEASE = "0e93a61da7e8"
 SEQUENCES = "60739eacde21"
-SOUNDTRACKS = "8c7b2e14f9ad"
+EXPANSION_HEAD = "7e70d435ad12"
 
 
 @contextmanager
@@ -79,7 +79,9 @@ def main():
                                      ("a" * 32, b"synthetic source bytes"))
                 migrate(restored_url, "upgrade", "head")
                 with psycopg.connect(restored_url) as restored:
-                    assert restored.execute("SELECT version_num FROM alembic_version").fetchone() == (SOUNDTRACKS,)
+                    assert restored.execute("SELECT version_num FROM alembic_version").fetchone() == (EXPANSION_HEAD,)
+                    assert restored.execute("SELECT count(*) FROM music_sessions").fetchone() == (0,)
+                    assert restored.execute("SELECT count(*) FROM video_sequence_revisions").fetchone() == (0,)
                     assert restored.execute("SELECT version FROM video_sequences").fetchone() == (7,)
                     assert restored.execute("SELECT content FROM video_sequence_sources").fetchone() == (b"synthetic source bytes",)
                     restored.execute("""INSERT INTO video_sequence_soundtracks
@@ -88,6 +90,8 @@ def main():
                 migrate(restored_url, "downgrade", SEQUENCES)
                 with psycopg.connect(restored_url) as restored:
                     assert restored.execute("SELECT to_regclass('video_sequence_soundtracks')").fetchone() == (None,)
+                    assert restored.execute("SELECT to_regclass('video_sequence_revisions')").fetchone() == (None,)
+                    assert restored.execute("SELECT to_regclass('music_sessions')").fetchone() == (None,)
                     assert restored.execute("SELECT version FROM video_sequences").fetchone() == (7,)
                 migrate(restored_url, "downgrade", RELEASE)
                 with psycopg.connect(restored_url) as restored:

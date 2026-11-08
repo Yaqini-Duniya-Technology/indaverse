@@ -7,7 +7,7 @@ from uuid import uuid4
 import anyio
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -16,7 +16,7 @@ from app.api.v1.video_clip_export import available_tools, render_slot
 from app.api.v1.video_projects import owned_video_project
 from app.database.connection import get_db
 from app.models.user import User
-from app.models.video_sequence import VideoSequence, VideoSequenceSoundtrack, VideoSequenceSource
+from app.models.video_sequence import VideoSequence, VideoSequenceRevision, VideoSequenceSoundtrack, VideoSequenceSource
 from app.services import clip_export, sequence_export as export, sequence_soundtrack as music
 from app.services.export_response import private_download
 from app.services.video_delivery import POSTER_TAIL_MS, build_kit
@@ -105,6 +105,55 @@ def state(db, sequence, sources):
     }
 
 
+REVISION_LIMIT = 30
+
+
+def record_revision(db, sequence):
+    if sequence is None or not sequence.version:
+        return
+    key = (sequence.project_id, sequence.version)
+    if db.get(VideoSequenceRevision, key) is not None:
+        return
+    track = db.get(VideoSequenceSoundtrack, sequence.project_id)
+    db.add(VideoSequenceRevision(project_id=sequence.project_id, version=sequence.version, snapshot={
+        "clips": sequence.clips,
+        "soundtrack": {"source_token": track.source_token, "settings": track.settings} if track else None,
+    }))
+
+
+def commit_sequence(db, sequence, sources):
+    db.flush()
+    record_revision(db, sequence)
+    db.execute(delete(VideoSequenceRevision).where(
+        VideoSequenceRevision.project_id == sequence.project_id,
+        VideoSequenceRevision.version <= sequence.version - REVISION_LIMIT,
+    ))
+    result = state(db, sequence, sources)
+    db.commit()
+    return result
+
+
+@router.get("/revisions")
+def list_sequence_revisions(project_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    sequence, sources = load(db, project_id, user.id, lock=True)
+    if sequence is None:
+        return {"version": 0, "revisions": []}
+    track = db.get(VideoSequenceSoundtrack, project_id)
+    rows = db.scalars(select(VideoSequenceRevision).where(VideoSequenceRevision.project_id == project_id)
+                     .order_by(VideoSequenceRevision.version.desc()).limit(REVISION_LIMIT))
+    revisions = []
+    for row in rows:
+        snapshot = row.snapshot
+        audio = snapshot["soundtrack"]
+        compatible = (set(sources) == {clip["source_id"] for clip in snapshot["clips"]}
+                      and bool(audio) == bool(track)
+                      and (track is None or audio["source_token"] == track.source_token))
+        revisions.append({"version": row.version, "clips": snapshot["clips"],
+                          "soundtrack_settings": audio["settings"] if audio else None,
+                          "compatible": compatible})
+    return {"version": sequence.version, "revisions": revisions}
+
+
 @router.get("")
 def get_sequence(project_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return state(db, *load(db, project_id, user.id, lock=True))
@@ -123,15 +172,14 @@ def add_source(db, project_id, user_id, version, name, duration, content):
         sequence = VideoSequence(project_id=project_id, version=0, clips=[])
         db.add(sequence)
         db.flush()
+    record_revision(db, sequence)
     source = VideoSequenceSource(id=uuid4().hex, project_id=project_id, name=name,
                                  duration_ms=duration, content=content)
     db.add(source)
     sequence.clips = [*current, {"source_id": source.id, "start_ms": 0, "end_ms": end}]
     sequence.version += 1
     sources[source.id] = source
-    result = state(db, sequence, sources)
-    db.commit()
-    return result
+    return commit_sequence(db, sequence, sources)
 
 
 @router.post("/sources", status_code=201)
@@ -186,10 +234,12 @@ def store_soundtrack(db, project_id, user_id, version, name, audio_format, durat
     sequence, sources = load(db, project_id, user_id, lock=True, version=version)
     if sequence is None or not sequence.clips:
         raise HTTPException(422, "Add a video clip before attaching a soundtrack.")
+    record_revision(db, sequence)
     track = db.get(VideoSequenceSoundtrack, project_id)
     if track is None:
         track = VideoSequenceSoundtrack(project_id=project_id)
         db.add(track)
+    track.source_token = uuid4().hex
     track.name = name
     track.format = audio_format
     track.duration_ms = duration
@@ -197,9 +247,7 @@ def store_soundtrack(db, project_id, user_id, version, name, audio_format, durat
     track.content = content
     sequence.version += 1
     db.flush()
-    result = state(db, sequence, sources)
-    db.commit()
-    return result
+    return commit_sequence(db, sequence, sources)
 
 
 @router.post("/soundtrack")
@@ -270,12 +318,11 @@ def remove_soundtrack(project_id: int, version: int = Query(ge=0),
     track = db.get(VideoSequenceSoundtrack, project_id)
     if track is None:
         raise HTTPException(404, "No saved soundtrack.")
+    record_revision(db, sequence)
     db.delete(track)
     sequence.version += 1
     db.flush()
-    result = state(db, sequence, sources)
-    db.commit()
-    return result
+    return commit_sequence(db, sequence, sources)
 
 
 @router.put("")
@@ -322,15 +369,16 @@ def save_sequence(project_id: int, edit: SequenceEdit,
         updated_settings = settings.model_dump()
         soundtrack_changed = track.settings != updated_settings
         if soundtrack_changed:
+            record_revision(db, sequence)
             track.settings = updated_settings
     if sequence is not None and (sequence.clips != clips or soundtrack_changed):
+        if not soundtrack_changed:
+            record_revision(db, sequence)
         sequence.clips = clips
         sequence.version += 1
         for source_id in sources.keys() - kept:
             db.delete(sources.pop(source_id))
-        result = state(db, sequence, sources)
-        db.commit()
-        return result
+        return commit_sequence(db, sequence, sources)
     return state(db, sequence, sources)
 
 

@@ -63,4 +63,24 @@ test("recover browser edits only while their saved sequence version still matche
   const download = page.waitForEvent("download");
   await recovery.getByRole("button", {name: "Download sequence draft JSON"}).click();
   expect((await download).suggestedFilename()).toBe(`indaverse-${id}-sequence-draft.json`);
+  await editor.getByLabel("Choose sequence SRT").setInputFiles({
+    name: "scene.srt", mimeType: "application/x-subrip",
+    buffer: Buffer.from("1\n00:00:00,200 --> 00:00:00,800\nSequence caption"),
+  });
+  await expect(editor.getByText("0.2–0.8s: Sequence caption")).toBeVisible();
+  await editor.getByRole("button", {name: "Replace captions in working sequence"}).click();
+  await expect(editor.getByRole("textbox", {name: "Caption text"})).toHaveValue("Sequence caption");
+  await editor.getByRole("button", {name: "Undo sequence edit"}).click();
+  await expect(editor.getByRole("textbox", {name: "Caption text"})).toHaveCount(0);
+  await editor.getByRole("button", {name: "Redo sequence edit"}).click();
+  await expect(editor.getByRole("textbox", {name: "Caption text"})).toHaveValue("Sequence caption");
+  await save.click();
+  await expect(editor.getByText("Sequence saved.")).toBeVisible();
+  const history = editor.getByRole("group", {name: "Sequence revision history"});
+  await history.getByRole("button", {name: "Load sequence revisions"}).click();
+  await history.getByRole("combobox", {name: "Saved revision"}).selectOption("2");
+  await expect(history.getByText(/Recover this edit/)).toBeVisible();
+  await history.getByRole("button", {name: "Restore revision to editor"}).click();
+  await expect(title).toHaveValue("Recover this edit");
+  expect((await (await page.request.get(base)).json()).version).toBe(4);
 });

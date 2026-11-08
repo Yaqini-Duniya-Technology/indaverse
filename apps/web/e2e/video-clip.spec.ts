@@ -179,7 +179,8 @@ test("save, reopen and export a vertical sequence with captions and a soundtrack
     await expect(soundtrack.getByRole("combobox", {name: "Clip audio", exact: true})).toHaveValue("replace");
     await editor.getByLabel("Video format").selectOption("vertical");
     await editor.getByLabel("Show captions in the video").check();
-    await editor.getByRole("button", {name: "Render saved sequence"}).click();
+    await editor.getByRole("button", {name: "Preview kit video"}).click();
+    await expect(editor.getByRole("link", {name: "Watch preview"})).toBeVisible();
     const downloadEvent = page.waitForEvent("download");
     await editor.getByRole("link", {name: "Download sequence MP4"}).click();
     const output = join(folder, "sequence.mp4");

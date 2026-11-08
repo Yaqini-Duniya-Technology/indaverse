@@ -27,20 +27,20 @@ Items without a status label are planned. Hosted checks need a passing runner re
 14. **CI check added:** Hold a render after it snapshots a saved version while two PostgreSQL writers contend. Verify one save wins, the other is rejected, and the renderer keeps the original clip and audio snapshot.
 15. **Implemented:** Chromium workflow checks that a signed-out browser cannot fetch a source, and that a different signed-in account cannot fetch that source or export its publishing kit.
 16. **Implemented:** Keep opt-in browser drafts of clip, caption, and soundtrack edits per account and project. Recover only against a matching server version; stale edits can be downloaded for reference.
-17. Add undo and redo for in-session cut, caption and soundtrack changes.
-18. Add a sequence revision list with preview and explicit restore.
-19. Import whole-sequence subtitles with a preview of how cues map to cuts.
-20. Offer a preview to review output framing, audio and caption choices before preparing the final ZIP.
+17. **Implemented:** Undo and redo up to 50 in-session edits to cuts, captions, and soundtrack settings.
+18. **Implemented:** List and review up to 30 saved sequence revisions. Explicitly restore compatible settings to the editor and save as a new version.
+19. **Implemented:** Import whole-sequence SRT, preview its clip-relative mapping, and confirm before applying.
+20. **Implemented:** Render and review the publishing kit's output settings before preparing the ZIP.
 
-## 21–30: Music Studio — planned
+## 21–30: Music Studio
 
-21. Import private audio into a saved track list.
-22. Generate a bounded waveform preview for an imported track.
-23. Mark audio regions with exact start and end times.
-24. Place trimmed regions on a session timeline.
-25. Add per-track volume, mute and solo.
-26. Add per-region fades with preview.
-27. Edit lyric sections and associate them with audio ranges.
+21. **Implemented:** Save a track list made from the project's private Audio Library.
+22. **Implemented:** Preview a bounded 128-bin waveform for each supported source.
+23. **Implemented:** Trim source regions with exact start and end times.
+24. **Implemented:** Position regions on a saved session timeline.
+25. **Implemented:** Control track volume, mute and solo during the preview mix.
+26. **Implemented:** Set per-region fades and hear them in the browser preview.
+27. **Implemented:** Write lyric sections and link them to time ranges that highlight during playback.
 28. Export a playable WAV mixdown.
 29. Export a compressed MP3 listening copy.
 30. Reuse a saved mixdown as a Video Studio soundtrack without a manual re-upload.
