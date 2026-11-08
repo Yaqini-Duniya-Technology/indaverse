@@ -27,3 +27,4 @@ from app.models.game_play_settings import GamePlaySettings
 from app.models.game_scene import GameScene
 from app.models.video_sequence import VideoSequence, VideoSequenceRevision, VideoSequenceSoundtrack, VideoSequenceSource
 from app.models.music_session import MusicSession
+from app.models.creator_delivery import CreatorDelivery

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import PlaytestDelivery from "@/components/PlaytestDelivery";
 import * as THREE from "three";
 import type { GameProject } from "@/lib/game";
 import type { SceneLayout } from "@/lib/gameScene";
@@ -49,6 +50,10 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
   const [count, setCount] = useState(0);
   const [checkpointActive, setCheckpointActive] = useState(false);
 
+  const [falls, setFalls] = useState(0);
+  const [resets, setResets] = useState(0);
+  const [started, setStarted] = useState(false);
+
   function clearInput() {
     keys.current.clear();
     touches.current.clear();
@@ -67,6 +72,7 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
     canvas.current?.focus();
     running.current = true;
     setStatus("playing");
+    setStarted(true);
   }
 
   function restart() {
@@ -74,6 +80,7 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
     clearInput();
     world.current = initial(layout);
     setCount(0);
+    if (started) setResets(value => Math.min(10000, value + 1));
     setCheckpointActive(false);
     setStatus("ready");
   }
@@ -223,6 +230,7 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
       }
 
       if (state.y < -5) {
+        setFalls(value => Math.min(10000, value + 1));
         const respawn = state.checkpointReached && checkpoint ? checkpoint : layout.spawn;
         state.x = respawn.x;
         state.y = respawn.y;
@@ -442,6 +450,8 @@ export default function ThreeGame({ game, layout, sceneVersion }: {
       ))}
     </div>
 
+    {sceneVersion > 0 && <PlaytestDelivery projectId={game.project_id} started={started}
+      snapshot={{scene_version: sceneVersion, gems: count, falls, resets, checkpoint: checkpointActive, completed: status === "won"}} />}
     <p>Progress lasts for this visit. Restart resets gems and position.
       Switching tabs pauses play. Platforms support landing from above.</p>
   </>;

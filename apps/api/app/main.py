@@ -129,3 +129,6 @@ app.include_router(video_sequence_router, prefix="/api/v1")
 
 from app.api.v1.music_session import router as music_session_router
 app.include_router(music_session_router, prefix="/api/v1")
+
+from app.api.v1.creator_delivery import router as creator_delivery_router
+app.include_router(creator_delivery_router, prefix="/api/v1")

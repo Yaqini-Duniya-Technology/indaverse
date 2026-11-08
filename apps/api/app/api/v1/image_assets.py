@@ -254,3 +254,86 @@ def copy_image(
         db.rollback()
         path.unlink(missing_ok=True)
         raise
+
+
+class ImageDerivative(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, str_strip_whitespace=True)
+
+    label: str = Field(min_length=1, max_length=150)
+    rotation: Literal[0, 90, 180, 270] = 0
+    x: int = Field(default=0, ge=0, le=MAX_PIXELS)
+    y: int = Field(default=0, ge=0, le=MAX_PIXELS)
+    crop_width: int | None = Field(default=None, ge=1, le=MAX_PIXELS)
+    crop_height: int | None = Field(default=None, ge=1, le=MAX_PIXELS)
+    max_edge: int | None = Field(default=None, ge=1, le=4096)
+
+
+def transformed_image(db, project_id, image_id, data):
+    source = db.scalar(select(ImageAsset).where(ImageAsset.id == image_id, ImageAsset.project_id == project_id))
+    if source is None:
+        raise HTTPException(404, "Image not found.")
+    root = UPLOAD_DIR.resolve()
+    original = (root / source.stored_filename).resolve()
+    if not original.is_relative_to(root) or not original.is_file():
+        raise HTTPException(404, "Image file not found.")
+    try:
+        with original.open("rb") as file:
+            raw = file.read(MAX_BYTES + 1)
+        if len(raw) != source.file_size or not raw or len(raw) > MAX_BYTES:
+            raise HTTPException(422, "This image cannot be processed.")
+        with Image.open(BytesIO(raw), formats=["WEBP"]) as image:
+            if image.width * image.height > MAX_PIXELS or getattr(image, "is_animated", False):
+                raise HTTPException(422, "This image exceeds the derivative limits.")
+            width = data.crop_width if data.crop_width is not None else image.width - data.x
+            height = data.crop_height if data.crop_height is not None else image.height - data.y
+            if width <= 0 or height <= 0 or data.x + width > image.width or data.y + height > image.height:
+                raise HTTPException(422, "The crop must fit within the original image.")
+            copy = image.convert("RGBA").crop((data.x, data.y, data.x + width, data.y + height))
+            copy.info.clear()
+            if data.rotation:
+                copy = copy.rotate(-data.rotation, expand=True)
+            if data.max_edge:
+                copy.thumbnail((data.max_edge, data.max_edge), Image.Resampling.LANCZOS)
+            output = BytesIO()
+            copy.save(output, format="WEBP", quality=90)
+            encoded = output.getvalue()
+            if len(encoded) > MAX_BYTES:
+                raise HTTPException(413, "Resize the edited image to fit the 10 MB limit.")
+            return source, encoded, copy.size
+    except (OSError, Image.DecompressionBombError) as exc:
+        raise HTTPException(422, "The original image could not be decoded.") from exc
+
+
+@router.post("/images/{image_id}/derivative-preview")
+def preview_derivative(project_id: int, image_id: int, data: ImageDerivative,
+                       user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.services.export_response import private_download
+
+    owned(db, project_id, user.id)
+    _, content, _ = transformed_image(db, project_id, image_id, data)
+    return private_download(content, media_type="image/webp", filename="image-preview.webp")
+
+
+@router.post("/images/{image_id}/derivatives", status_code=201)
+def save_derivative(project_id: int, image_id: int, data: ImageDerivative,
+                    user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    owned(db, project_id, user.id, lock=True)
+    source, content, (width, height) = transformed_image(db, project_id, image_id, data)
+    filename = uuid4().hex + ".webp"
+    path = UPLOAD_DIR.resolve() / filename
+    try:
+        with path.open("xb") as target:
+            target.write(content)
+        derivative = ImageAsset(
+            project_id=project_id, label=data.label, category=source.category, stored_filename=filename,
+            mime_type="image/webp", file_size=len(content), width=width, height=height,
+        )
+        db.add(derivative)
+        db.flush()
+        result = metadata(derivative)
+        db.commit()
+        return result
+    except Exception:
+        db.rollback()
+        path.unlink(missing_ok=True)
+        raise

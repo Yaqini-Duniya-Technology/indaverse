@@ -11,6 +11,7 @@ class SoftwareSection(BaseModel):
     kind: Literal["hero", "text", "cards", "form", "call_to_action"] = "text"
     heading: str = Field(default="", max_length=200)
     content: str = Field(default="", max_length=10000)
+    link_path: str = Field(default="", max_length=200, pattern=r"^(/[a-zA-Z0-9/_-]*)?$", exclude_if=lambda v: not v)
 
 
 class SoftwarePage(BaseModel):
@@ -19,6 +20,11 @@ class SoftwarePage(BaseModel):
     id: str = Field(min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$")
     name: str = Field(min_length=1, max_length=150)
     path: str = Field(min_length=1, max_length=200, pattern=r"^/[a-zA-Z0-9/_-]*$")
+    nav_label: str = Field(default="", max_length=80, exclude_if=lambda v: not v)
+    seo_title: str = Field(default="", max_length=150, exclude_if=lambda v: not v)
+    seo_description: str = Field(default="", max_length=300, exclude_if=lambda v: not v)
+    social_title: str = Field(default="", max_length=150, exclude_if=lambda v: not v)
+    social_description: str = Field(default="", max_length=300, exclude_if=lambda v: not v)
     sections: list[SoftwareSection] = Field(default_factory=list, max_length=30)
 
     @field_validator("name", mode="before")

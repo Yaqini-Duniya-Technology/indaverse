@@ -225,3 +225,78 @@ test("apply playable templates and exercise a saved 3D checkpoint and objective"
     await expect(page.getByText("Completed! Gem objective met and exit reached.")).toBeVisible();
   } finally { await page.keyboard.up("ArrowUp"); }
 });
+
+test("save a Zamara playtest and complete the downloaded browser build offline", async ({page, context}, testInfo) => {
+  await account(page);
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", {name: "Create private Zamara demo"}).click();
+  await expect(page).toHaveURL(/\/projects\/\d+\/game$/);
+  await page.goto(page.url() + "/play");
+  await page.getByRole("button", {name: "Start", exact: true}).click();
+  await page.keyboard.down("ArrowRight");
+  try {await expect(page.getByText(/Completed! All gems/)).toBeVisible();}
+  finally {await page.keyboard.up("ArrowRight");}
+  await page.getByLabel("Playtest note").fill("Zamara browser rehearsal");
+  await page.getByRole("button", {name: "Save playtest report"}).click();
+  await expect(page.getByText("Zamara browser rehearsal", {exact: true})).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", {name: "Download offline browser build"}).click();
+  const file = testInfo.outputPath("playable.html");
+  await (await download).saveAs(file);
+  const {pathToFileURL} = await import("node:url");
+  const offline = await context.newPage();
+  await offline.route(/^https?:/, route => route.abort());
+  await offline.goto(pathToFileURL(file).href);
+  await offline.getByRole("button", {name: "Start / resume"}).click();
+  await offline.keyboard.down("ArrowRight");
+  try {await expect(offline.getByRole("status")).toHaveText(/Completed! · Gems 3 \/ 3/);}
+  finally {await offline.keyboard.up("ArrowRight");}
+  await offline.close();
+});
+
+test("add a page template, validate a broken link, and download a corrected site", async ({page}) => {
+  await account(page);
+  const created = await page.request.post(api + "/projects", {data: {name: "Delivery site", project_type: "website"}});
+  const {id} = await created.json();
+  await page.goto(`/projects/${id}/software`);
+  await page.getByRole("button", {name: "Add template page"}).click();
+  await page.getByLabel("Internal link target (optional)").first().fill("/missing");
+  await page.getByRole("button", {name: "Save blueprint", exact: true}).click();
+  await page.getByRole("button", {name: "Check saved links"}).click();
+  await expect(page.getByText("/missing does not match", {exact: false})).toBeVisible();
+  await page.getByLabel("Internal link target (optional)").first().fill("/about");
+  await page.getByRole("button", {name: "Save blueprint", exact: true}).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", {name: "Download static site ZIP"}).click();
+  expect((await download).suggestedFilename()).toBe("indaverse-site.zip");
+});
+
+test("review a local adapter draft, link a private image and export a scheduled handoff", async ({page}) => {
+  await account(page);
+  const created = await page.request.post(api + "/projects", {data: {name: "Campaign fixture", project_type: "story"}});
+  const {id} = await created.json();
+  const image = await page.request.post(`${api}/projects/${id}/images`, {multipart: {
+    label: "Promotion still", category: "reference", file: {name: "pixel.png", mimeType: "image/png",
+      buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aNukAAAAASUVORK5CYII=", "base64")},
+  }});
+  expect(image.status()).toBe(201);
+  await page.goto(`/projects/${id}/campaign`);
+  await page.getByLabel("Short campaign brief").fill("Zamara launch");
+  await page.getByLabel("Run the local adapter once for this brief").check();
+  await page.getByRole("button", {name: "Generate review drafts"}).click();
+  await page.getByRole("button", {name: "Add suggestion 1 as unsaved post"}).click();
+  await page.getByLabel("Local date and time").fill("2026-11-20T09:00");
+  await page.getByText("Linked images and video sources (0)").click();
+  await page.getByRole("button", {name: "Load project assets"}).click();
+  await page.getByRole("combobox", {name: "Asset", exact: true}).selectOption({label: "Image: Promotion still"});
+  await page.getByRole("button", {name: "Link asset"}).click();
+  await page.getByRole("button", {name: "Save campaign", exact: true}).click();
+  await expect(page.getByText("Campaign saved.", {exact: true})).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("link", {name: /2026-11-20 09:00 \(Africa\/Lagos\)/})).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", {name: "Download campaign handoff"}).click();
+  const body = JSON.parse(await readFile((await (await download).path())!, "utf-8"));
+  expect(body.posts[0].assets).toHaveLength(1);
+  expect(body.delivery).toBe("manual");
+});
