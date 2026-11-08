@@ -19,6 +19,7 @@ from app.models.user import User
 from app.models.video_sequence import VideoSequence, VideoSequenceSoundtrack, VideoSequenceSource
 from app.services import clip_export, sequence_export as export, sequence_soundtrack as music
 from app.services.export_response import private_download
+from app.services.video_delivery import POSTER_TAIL_MS, build_kit
 
 router = APIRouter(prefix="/projects/{project_id}/video/sequence", tags=["Video Studio"])
 
@@ -359,27 +360,52 @@ def download_captions(project_id: int, extension: Literal["srt", "vtt"], version
 def render_sequence(project_id: int, version: int = Query(ge=0),
                     preset: export.Preset = "landscape", burn_captions: bool = False,
                     user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    content = render_saved(db, project_id, user.id, version, preset, burn_captions)
+    return private_download(content, media_type="video/mp4", filename=f"indaverse-{project_id}-sequence.mp4")
+
+
+@router.post("/delivery")
+def export_delivery(project_id: int, version: int = Query(ge=0),
+                    preset: export.Preset = "landscape", burn_captions: bool = False,
+                    poster_ms: int | None = Query(default=None, ge=0, lt=export.MAX_SEQUENCE_MS),
+                    include_srt: bool = True, include_vtt: bool = True,
+                    user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    def package(folder, mp4, cuts, ffmpeg):
+        duration = sum(cut["end_ms"] - cut["start_ms"] for cut in cuts)
+        return build_kit(ffmpeg, folder, mp4, cuts, version=version, preset=preset,
+                         burn_captions=burn_captions, poster_ms=duration // 2 if poster_ms is None else poster_ms,
+                         include_srt=include_srt, include_vtt=include_vtt)
+
+    content = render_saved(db, project_id, user.id, version, preset, burn_captions,
+                           package=package, poster_ms=poster_ms)
+    return private_download(content, media_type="application/zip", filename=f"indaverse-{project_id}-delivery.zip")
+
+
+def render_saved(db, project_id, user_id, version, preset, burn_captions, *, package=None, poster_ms=None):
     tools = available_tools()
     # Check ownership and snapshot the expected saved version before rendering.
-    sequence, sources = load(db, project_id, user.id, lock=True, version=version)
+    sequence, sources = load(db, project_id, user_id, lock=True, version=version)
     if tools is None:
         raise HTTPException(503, "Local MP4 processing is unavailable.")
     if sequence is None or not sequence.clips:
         raise HTTPException(422, "Add a clip before rendering.")
+    cuts = sequence.clips
+    if poster_ms is not None and poster_ms > sum(cut["end_ms"] - cut["start_ms"] for cut in cuts) - POSTER_TAIL_MS:
+        raise HTTPException(422, "Choose a poster time at least 0.1 seconds before the video ends.")
     if not render_slot.acquire(blocking=False):
         raise HTTPException(429, "Video processing is busy. Try again shortly.")
     try:
-        items = [(cut, sources[cut["source_id"]].content) for cut in sequence.clips]
+        items = [(cut, sources[cut["source_id"]].content) for cut in cuts]
         track = db.get(VideoSequenceSoundtrack, project_id)
         soundtrack = (track.format, track.settings, track.content) if track else None
         db.close()
         with TemporaryDirectory(prefix="indaverse-sequence-") as folder:
             content = export.render(tools, Path(folder), items, preset=preset,
                                     burn_captions=burn_captions, soundtrack=soundtrack)
+            return package(Path(folder), content, cuts, tools[0]) if package else content
     except clip_export.ClipError as exc:
         raise HTTPException(exc.status, str(exc)) from exc
     except OSError as exc:
         raise HTTPException(503, "Temporary video storage is unavailable.") from exc
     finally:
         render_slot.release()
-    return private_download(content, media_type="video/mp4", filename=f"indaverse-{project_id}-sequence.mp4")

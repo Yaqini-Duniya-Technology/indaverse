@@ -366,3 +366,72 @@ def test_timed_captions_survive_reordering_and_render_at_each_position(video_wor
     assert client.put(base, json={"version": 5, "clips": limits}).status_code == 200
     result = client.post(f"{base}/render?version=6&burn_captions=true")
     assert result.status_code == 200, result.text
+
+
+def test_private_delivery_kit_matches_saved_render(video_workspace, tmp_path):
+    from hashlib import sha256
+    from io import BytesIO
+    from zipfile import ZipFile
+
+    from PIL import Image
+
+    tools = renderer_tools()
+    if not tools:
+        pytest.skip("Requires FFmpeg and FFprobe.")
+    ffmpeg, ffprobe = tools
+    client = video_workspace
+    base = "/api/v1/projects/1/video/sequence"
+    for version, color in enumerate(("red", "blue")):
+        source = tmp_path / f"{color}.mp4"
+        subprocess.run([
+            ffmpeg, "-v", "error", "-f", "lavfi", "-i", f"color={color}:s=160x120:r=30:d=1",
+            "-c:v", "libx264", "-threads", "2", str(source),
+        ], check=True, timeout=15)
+        assert client.post(f"{base}/sources?version={version}", content=source.read_bytes(),
+                           headers={"Content-Type": "video/mp4", "X-Video-Filename": f"{color}.mp4"}).status_code == 201
+    red, blue = client.get(base).json()["clips"]
+    saved = client.put(base, json={"version": 2, "clips": [
+        {**red, "start_ms": 200}, {**blue, "caption": "Look & listen"},
+    ]})
+    assert saved.status_code == 200, saved.text
+    assert client.post(f"{base}/delivery?version=2").status_code == 409
+    assert client.post(f"{base}/delivery?version=3&poster_ms=1800").status_code == 422
+    client.cookies.set("indaverse_access_token", "2")
+    assert client.post(f"{base}/delivery?version=3").status_code == 404
+    client.cookies.set("indaverse_access_token", "1")
+    response = client.post(f"{base}/delivery?version=3&preset=vertical&poster_ms=1200&include_srt=false&burn_captions=true")
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["content-type"] == "application/zip"
+    assert "indaverse-1-delivery.zip" in response.headers["content-disposition"]
+    with ZipFile(BytesIO(response.content)) as kit:
+        manifest = json.loads(kit.read("manifest.json"))
+        assert set(kit.namelist()) == {"manifest.json", "video.mp4", "poster.jpg", "timeline.csv",
+                                     "captions.vtt", "caption-transcript.txt", "publishing-checklist.txt"}
+        assert manifest["schema_version"] == 1
+        assert manifest["sequence_version"] == 3
+        assert manifest["captions_burned_in"]
+        assert manifest["planned_duration_ms"] == 1800 and manifest["poster_requested_ms"] == 1200
+        assert set(manifest["files"]) == set(kit.namelist()) - {"manifest.json"}
+        for name, info in manifest["files"].items():
+            data = kit.read(name)
+            assert info["sha256"] == sha256(data).hexdigest()
+            assert info["bytes"] == len(data)
+        poster = Image.open(BytesIO(kit.read("poster.jpg")))
+        assert poster.format == "JPEG" and poster.size == (360, 640)
+        red_value, _, blue_value = poster.getpixel((180, 320))
+        assert blue_value > 200 and red_value < 40  # The chosen time is in the second clip.
+        assert kit.read("timeline.csv").decode().splitlines()[1:] == [
+            "1,200,1000,0,800,0", "2,0,1000,800,1800,1",
+        ]
+        assert b"[0.800 s]\nLook & listen" in kit.read("caption-transcript.txt")
+        assert b"00:00:00.800 --> 00:00:01.800\nLook &amp; listen" in kit.read("captions.vtt")
+        output = tmp_path / "delivery.mp4"
+        output.write_bytes(kit.read("video.mp4"))
+    metadata = json.loads(subprocess.check_output([
+        ffprobe, "-v", "error", "-show_entries", "format=duration:stream=width,height",
+        "-select_streams", "v:0", "-of", "json", str(output),
+    ], timeout=10))
+    assert metadata["streams"] == [{"width": 360, "height": 640}]
+    assert float(metadata["format"]["duration"]) == pytest.approx(1.8, abs=.1)
+    subprocess.run([ffmpeg, "-v", "error", "-xerror", "-i", str(output), "-f", "null", "-"], check=True, timeout=10)
