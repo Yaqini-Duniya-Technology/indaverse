@@ -14,7 +14,7 @@ from psycopg import sql
 API = Path(__file__).resolve().parents[1] / "apps/api"
 RELEASE = "0e93a61da7e8"
 SEQUENCES = "60739eacde21"
-EXPANSION_HEAD = "d45be13ac018"
+EXPANSION_HEAD = "2eb745c18a60"
 
 
 @contextmanager
@@ -80,6 +80,7 @@ def main():
                 migrate(restored_url, "upgrade", "head")
                 with psycopg.connect(restored_url) as restored:
                     assert restored.execute("SELECT version_num FROM alembic_version").fetchone() == (EXPANSION_HEAD,)
+                    assert restored.execute("SELECT count(*) FROM sandbox_payments").fetchone() == (0,)
                     assert restored.execute("SELECT count(*) FROM credit_entries").fetchone() == (0,)
                     assert restored.execute("SELECT count(*) FROM beta_invites").fetchone() == (0,)
                     assert restored.execute("SELECT count(*) FROM beta_access").fetchone() == (0,)
@@ -99,6 +100,7 @@ def main():
                     assert restored.execute("SELECT to_regclass('video_sequence_soundtracks')").fetchone() == (None,)
                     assert restored.execute("SELECT to_regclass('video_sequence_revisions')").fetchone() == (None,)
                     assert restored.execute("SELECT to_regclass('creator_delivery')").fetchone() == (None,)
+                    assert restored.execute("SELECT to_regclass('sandbox_payments')").fetchone() == (None,)
                     assert restored.execute("SELECT to_regclass('credit_entries')").fetchone() == (None,)
                     assert restored.execute("SELECT to_regclass('beta_access')").fetchone() == (None,)
                     assert restored.execute("SELECT to_regclass('beta_invites')").fetchone() == (None,)

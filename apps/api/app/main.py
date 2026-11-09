@@ -135,3 +135,6 @@ app.include_router(creator_delivery_router, prefix="/api/v1")
 
 from app.api.v1.credits import router as credits_router
 app.include_router(credits_router, prefix="/api/v1")
+
+from app.api.v1.payments import router as payments_router
+app.include_router(payments_router, prefix="/api/v1")

@@ -1,4 +1,5 @@
 """Transactional credit operations. Callers commit with the payment/job result."""
+from calendar import monthrange
 from datetime import UTC, datetime
 from hashlib import sha256
 from typing import Literal
@@ -111,7 +112,7 @@ def grant_credits(db: Session, user_id: int, reference: str, source: Source, amo
 
 
 def assign_plan(db: Session, user_id: int, reference: str, key: str, period: Literal["monthly", "annual"],
-                period_end: datetime):
+                period_end: datetime, *, included_credits: int | None = None):
     _reference(reference)
     if key not in PLAN_KEYS or key == "free" or period not in ("monthly", "annual"):
         raise ValueError("Choose a paid plan and a monthly or annual period.")
@@ -129,11 +130,29 @@ def assign_plan(db: Session, user_id: int, reference: str, key: str, period: Lit
     if period_end <= stamp or (account.period_end and period_end <= account.period_end):
         raise HTTPException(409, "The new plan period must end after the current period.")
     account.plan_key, account.period, account.period_end = key, period, period_end
-    amount = settings.credit_policy.plans[key].included_credits
+    amount = settings.credit_policy.plans[key].included_credits if included_credits is None else included_credits
+    if type(amount) is not int or not 0 <= amount <= MAX_CREDITS:
+        raise ValueError("Invalid included credits.")
     if amount:
         _grant(db, user_id, _plan_reference(reference),
                "subscription", amount, period_end, stamp)
     _entry(db, user_id, "plan", reference, stamp, **details)
+
+
+
+def fulfill_prepaid_plan(db: Session, user_id: int, reference: str, key: str,
+                         period: Literal["monthly", "annual"], included_credits: int):
+    """Add one verified period without replacing an active different tier."""
+    account = _lock(db, user_id)
+    stamp = utc_now()
+    effective_key, _ = _plan(account, stamp)
+    if effective_key not in ("free", key):
+        raise HTTPException(409, "A different prepaid plan is still active.")
+    start = max(stamp, account.period_end) if account.period_end else stamp
+    count = 1 if period == "monthly" else 12
+    year, month = divmod(start.year * 12 + start.month - 1 + count, 12)
+    end = start.replace(year=year, month=month + 1, day=min(start.day, monthrange(year, month + 1)[1]))
+    assign_plan(db, user_id, reference, key, period, end, included_credits=included_credits)
 
 
 def _plan_reference(reference: str) -> str:

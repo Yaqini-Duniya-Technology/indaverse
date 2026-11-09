@@ -311,3 +311,48 @@ test('billing shows private wallet, quotas and unapproved NGN prices', async ({p
   await expect(page.getByText('Monthly: Not set · Annual: Not set').first()).toBeVisible();
   await expect(page.getByText('No credit transactions yet.')).toBeVisible();
 });
+
+test('sandbox checkout displays a price and requires explicit confirmation', async ({page}) => {
+  await account(page);
+  const reference = 'ivtest-' + 'a'.repeat(32);
+  const receipt = {
+    reference, title: 'Starter Credits', amount_kobo: 250000, credits: 10, currency: 'NGN',
+    state: 'pending', created_at: '2026-11-09T12:00:00Z', paid_at: null, checkout_url: null,
+  };
+  let received = false, checked = false;
+  await page.route('**/api/v1/payments/**', async (route) => {
+    const headers = {
+      'Access-Control-Allow-Origin': 'http://127.0.0.1:3012', 'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Headers': 'content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    };
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({status: 204, headers}); return;
+    }
+    const path = new URL(route.request().url()).pathname;
+    let json: unknown;
+    if (path.endsWith('/catalog')) {
+      json = {enabled: true, products: [{key: 'bundle-starter', title: receipt.title,
+        amount_kobo: receipt.amount_kobo, credits: receipt.credits, plan: null}]};
+    } else if (path.endsWith('/checkout')) {
+      expect(route.request().postDataJSON()).toMatchObject({
+        product: 'bundle-starter', confirmed_amount_kobo: 250000, confirmed_credits: 10, attempt: expect.any(String),
+      });
+      received = true; json = receipt;
+    } else if (path.endsWith('/verify')) {
+      checked = true; json = {...receipt, state: 'paid'};
+    } else {
+      json = {items: received ? [{...receipt, state: checked ? 'paid' : 'pending'}] : [], next_before: null};
+    }
+    await route.fulfill({status: 200, headers, json});
+  });
+  await page.goto('/billing?reference=' + reference);
+  await page.getByRole('radio', {name: /Starter Credits/}).check();
+  await expect(page.getByText(/Review: Starter Credits/)).toBeVisible();
+  expect(received).toBe(false);
+  await page.getByRole('button', {name: 'Confirm and open Paystack test checkout'}).click();
+  await expect(page.getByText(/Awaiting payment/)).toBeVisible();
+  expect(checked).toBe(false);
+  await page.getByRole('button', {name: 'Verify returned test payment'}).click();
+  await expect(page.getByText(/Verified and fulfilled/)).toBeVisible();
+  expect(checked).toBe(true);
+});
