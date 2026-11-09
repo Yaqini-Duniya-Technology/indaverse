@@ -157,3 +157,53 @@ def test_video_render_uses_one_version_and_does_not_hold_write_lock(monkeypatch)
         assert render(1).status_code == 409
     finally:
         engine.dispose()
+
+
+def test_credit_reservations_serialize_per_wallet(monkeypatch):
+    from datetime import timedelta
+
+    from fastapi import HTTPException
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from app.core.config import settings
+    from app.core.credit_policy import default_credit_policy
+    from app.database.connection import Base
+    from app.models.user import User
+    from app.services.credits import assign_plan, grant_credits, reserve_credits, utc_now, wallet_summary
+
+    parsed = urlsplit(URL)
+    assert parsed.hostname in ("localhost", "127.0.0.1") and parsed.path.startswith("/indaverse_test_")
+    engine = create_engine(URL.replace("postgresql://", "postgresql+psycopg://", 1),
+                           connect_args={"options": "-c lock_timeout=5000 -c statement_timeout=10000"})
+    policy = default_credit_policy()
+    policy.action_costs["image_generation"] = 5
+    monkeypatch.setattr(settings, "credit_policy", policy)
+    Base.metadata.create_all(engine)
+    try:
+        with Session(engine) as db, db.begin():
+            user_id = 749
+            db.add(User(id=user_id, email="credit-locks@example.com", username="credit-locks",
+                        hashed_password="fixture", is_active=True))
+            db.flush()
+            assign_plan(db, user_id, "fixture-plan", "basic", "monthly", utc_now() + timedelta(days=30))
+            grant_credits(db, user_id, "fixture-grant", "promotion", 6)
+
+        barrier = Barrier(2)
+
+        def attempt(reference):
+            barrier.wait(timeout=5)
+            try:
+                with Session(engine) as db, db.begin():
+                    reserve_credits(db, user_id, reference, "image_generation", 5)
+                return 200
+            except HTTPException as exc:
+                return exc.status_code
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            assert sorted(pool.map(attempt, ("first", "second"))) == [200, 402]
+        with Session(engine) as db:
+            state = wallet_summary(db, user_id)
+            assert (state["available"], state["reserved"]) == (1, 5)
+    finally:
+        engine.dispose()

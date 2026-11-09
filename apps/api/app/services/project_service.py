@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.services.credits import check_project_creation
 from app.models.project import Project
 from app.schemas.project import ProjectCreate
 
@@ -10,6 +11,7 @@ def create_project(
     user_id: int,
     project_data: ProjectCreate,
 ) -> Project:
+    check_project_creation(db, user_id, project_data.project_type)
     project = Project(
         user_id=user_id,
         name=project_data.name,

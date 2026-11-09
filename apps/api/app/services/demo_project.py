@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 from sqlalchemy.orm import Session
+from app.services.credits import check_project_creation
 from app.models.project import Project
 from app.models.game_project import GameProject
 from app.models.game_scene import GameScene
@@ -18,6 +19,7 @@ def create_zamara_demo(db: Session, user_id: int) -> Project:
     }).model_dump(exclude={"expected_version"})
     scene = SceneLayout.model_validate(json.loads((DEMO_DIR / "zamara-scene.json").read_text())).model_dump()
     try:
+        check_project_creation(db, user_id, "game")
         project = Project(
             user_id=user_id, name="Legends of Zamara — demo", project_type="game", visibility="private",
             description="Curated design example and a separate three-gem courtyard prototype. No AI assets or quests are generated.",

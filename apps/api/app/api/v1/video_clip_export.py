@@ -13,7 +13,7 @@ from app.core.config import settings
 from app.database.connection import get_db
 from app.models.user import User
 from app.services import clip_export
-from app.services.export_response import private_download
+from app.services.export_response import metered_download
 
 router = APIRouter(prefix="/projects/{project_id}/video/clip-export", tags=["Video Studio"])
 render_slot = BoundedSemaphore(1)
@@ -88,4 +88,5 @@ async def export_clip(
         raise HTTPException(503, "Temporary video storage is unavailable.") from exc
     finally:
         render_slot.release()
-    return private_download(content, media_type="video/mp4", filename=f"indaverse-{project_id}-clip.mp4")
+    return await run_in_threadpool(metered_download, db, user.id, content, media_type="video/mp4",
+                                   filename=f"indaverse-{project_id}-clip.mp4", edge=1920)

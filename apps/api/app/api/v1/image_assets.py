@@ -12,6 +12,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
+from app.services.credits import check_storage
+from app.services.export_response import metered_download
 from app.api.v1.dependencies import get_current_user
 from app.database.connection import get_db
 from app.models.image_asset import ImageAsset
@@ -97,6 +99,7 @@ async def upload_image(
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
         filename = uuid4().hex + ".webp"
         path = UPLOAD_DIR / filename
+        check_storage(db, user.id, len(encoded))
         path.write_bytes(encoded)
         asset = ImageAsset(
             project_id=project_id, label=label, category=category,
@@ -145,13 +148,8 @@ def list_images(
     }
 
 
-@router.get("/images/{image_id}/content")
-def image_content(
-    project_id: int, image_id: int,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    owned(db, project_id, user.id)
+def stored_image(db, project_id, image_id, user_id):
+    owned(db, project_id, user_id)
     asset = db.scalar(select(ImageAsset).where(
         ImageAsset.id == image_id, ImageAsset.project_id == project_id,
     ))
@@ -161,10 +159,35 @@ def image_content(
     path = (root / asset.stored_filename).resolve()
     if not path.is_relative_to(root) or not path.is_file():
         raise HTTPException(status_code=404, detail="Image file not found.")
+    return asset, path
+
+
+@router.get("/images/{image_id}/content")
+def image_content(project_id: int, image_id: int, user: User = Depends(get_current_user),
+                  db: Session = Depends(get_db)):
+    asset, path = stored_image(db, project_id, image_id, user.id)
     return FileResponse(path, media_type=asset.mime_type, headers={
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
     })
+
+
+@router.post("/images/{image_id}/download")
+def download_image(project_id: int, image_id: int, user: User = Depends(get_current_user),
+                   db: Session = Depends(get_db)):
+    asset, path = stored_image(db, project_id, image_id, user.id)
+    try:
+        with path.open("rb") as source:
+            content = source.read(MAX_BYTES + 1)
+    except OSError as exc:
+        raise HTTPException(404, "Image file not found.") from exc
+    if not content or len(content) > MAX_BYTES or len(content) != asset.file_size:
+        raise HTTPException(422, "The stored image is incomplete or exceeds the download limit.")
+    suffix = {"image/webp": "webp", "image/png": "png", "image/jpeg": "jpg"}.get(asset.mime_type)
+    if suffix is None:
+        raise HTTPException(422, "The stored image format is unsupported.")
+    return metered_download(db, user.id, content, media_type=asset.mime_type,
+                            filename=f"indaverse-image-{asset.id}.{suffix}", edge=max(asset.width, asset.height))
 
 
 class CoverUpdate(BaseModel):
@@ -239,6 +262,7 @@ def copy_image(
     path = root / filename
     try:
         with path.open("xb") as target:
+            check_storage(db, user.id, len(encoded))
             target.write(encoded)
         copy = ImageAsset(
             project_id=destination, label=source.label, category=source.category,
@@ -323,6 +347,7 @@ def save_derivative(project_id: int, image_id: int, data: ImageDerivative,
     path = UPLOAD_DIR.resolve() / filename
     try:
         with path.open("xb") as target:
+            check_storage(db, user.id, len(content))
             target.write(content)
         derivative = ImageAsset(
             project_id=project_id, label=data.label, category=source.category, stored_filename=filename,
