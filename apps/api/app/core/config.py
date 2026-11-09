@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     database_url: str
     redis_url: str
     secret_key: str
+    private_beta: bool = False
     cookie_secure: bool = False
     video_clip_export_enabled: bool = False
     access_token_expire_minutes: int = Field(default=60, ge=5, le=1440)

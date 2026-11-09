@@ -1,9 +1,9 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { registerUser } from "@/lib/auth";
+import { getRegistrationPolicy, registerUser } from "@/lib/auth";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -11,6 +11,18 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [inviteRequired, setInviteRequired] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getRegistrationPolicy(controller.signal).then(({ invite_required }) => {
+      if (!controller.signal.aborted) setInviteRequired(invite_required);
+    }).catch(() => {
+      // Keep the optional code field available if the policy could not load.
+    });
+    return () => controller.abort();
+  }, []);
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,6 +38,7 @@ export default function RegisterPage() {
         email,
         username,
         password,
+        ...(inviteCode.trim() ? { invite_code: inviteCode.trim() } : {}),
       });
 
       router.push("/login");
@@ -65,7 +78,7 @@ export default function RegisterPage() {
           </div>
 
           {error && (
-            <div className="mb-5 rounded-lg border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+            <div role="alert" className="mb-5 rounded-lg border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300">
               {error}
             </div>
           )}
@@ -140,6 +153,28 @@ export default function RegisterPage() {
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none transition focus:border-white"
               />
             </div>
+
+            {inviteRequired !== false && (
+              <div>
+                <label htmlFor="invite-code" className="mb-2 block text-sm font-medium text-zinc-300">
+                  Beta invitation code{inviteRequired === null ? " (if you received one)" : ""}
+                </label>
+                <input
+                  id="invite-code"
+                  type="password"
+                  autoComplete="off"
+                  required={inviteRequired === true}
+                  maxLength={64}
+                  value={inviteCode}
+                  onChange={(event) => setInviteCode(event.target.value)}
+                  aria-describedby="invite-hint"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none transition focus:border-white"
+                />
+                <p id="invite-hint" className="mt-2 text-sm text-zinc-400">
+                  Use the email address your invitation was sent to.
+                </p>
+              </div>
+            )}
 
             <button
               type="submit"

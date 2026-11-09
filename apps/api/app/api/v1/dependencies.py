@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.security import decode_access_token
 from app.database.connection import get_db
 from app.models.user import User
+from app.services.beta_access import require_beta_access
 
 
 def get_current_user(
@@ -57,4 +58,5 @@ def get_current_user(
             detail="User account is inactive.",
         )
 
+    require_beta_access(db, user.id)
     return user

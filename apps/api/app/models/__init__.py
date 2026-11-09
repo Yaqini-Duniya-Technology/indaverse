@@ -28,3 +28,4 @@ from app.models.game_scene import GameScene
 from app.models.video_sequence import VideoSequence, VideoSequenceRevision, VideoSequenceSoundtrack, VideoSequenceSource
 from app.models.music_session import MusicSession
 from app.models.creator_delivery import CreatorDelivery
+from app.models.beta_access import BetaAccess, BetaInvite

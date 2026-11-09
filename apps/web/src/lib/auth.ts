@@ -12,6 +12,7 @@ interface RegisterData {
   email: string;
   username: string;
   password: string;
+  invite_code?: string;
 }
 
 interface LoginData {
@@ -21,6 +22,10 @@ interface LoginData {
 
 interface TokenResponse {
   message: string;
+}
+
+export function getRegistrationPolicy(signal?: AbortSignal) {
+  return apiFetch<{ invite_required: boolean }>("/api/v1/auth/registration-policy", { signal });
 }
 
 export async function registerUser(

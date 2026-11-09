@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.core.security import create_access_token, verify_password
 from app.database.connection import get_db
 from app.models.user import User
+from app.services.beta_access import require_beta_access
 from app.schemas.auth import (
     TokenResponse,
     UserLogin,
@@ -26,6 +27,11 @@ router = APIRouter(
 
 
 COOKIE_NAME = "indaverse_access_token"
+
+
+@router.get("/registration-policy")
+def registration_policy():
+    return {"invite_required": settings.private_beta}
 
 
 @router.post(
@@ -97,6 +103,7 @@ def login(
             detail="User account is inactive.",
         )
 
+    require_beta_access(db, user.id)
     access_token = create_access_token(str(user.id))
 
     response.set_cookie(
