@@ -1,10 +1,11 @@
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.credit_policy import CreditPolicy, default_credit_policy
+from app.core.payment_policy import BundleKey, CreditBundle, default_bundles
 
 BASE_DIR = Path(__file__).resolve().parents[4]
 ENV_FILE = BASE_DIR / ".env"
@@ -22,6 +23,11 @@ class Settings(BaseSettings):
     private_beta: bool = False
     credit_enforcement: bool = False
     credit_policy: CreditPolicy = Field(default_factory=default_credit_policy)
+    paystack_sandbox_enabled: bool = False
+    paystack_test_secret: SecretStr | None = None
+    paystack_webhook_secret: SecretStr | None = None
+    paystack_allow_legacy_signature: bool = False
+    credit_bundles: dict[BundleKey, CreditBundle] = Field(default_factory=default_bundles)
     cookie_secure: bool = False
     video_clip_export_enabled: bool = False
     access_token_expire_minutes: int = Field(default=60, ge=5, le=1440)
@@ -51,6 +57,25 @@ class Settings(BaseSettings):
         if not values or any(not v or "*" in v or "/" in v or ":" in v for v in values):
             raise ValueError("Use explicit hostnames without ports or wildcards.")
         return values
+
+    @model_validator(mode="after")
+    def sandbox_payments(self):
+        if self.paystack_test_secret and not self.paystack_test_secret.get_secret_value().startswith("sk_test_"):
+            raise ValueError("Checkout only accepts a Paystack test secret key.")
+        if self.paystack_webhook_secret and not self.paystack_webhook_secret.get_secret_value().startswith("whsec_"):
+            raise ValueError("Use a Paystack webhook signing secret.")
+        if self.paystack_sandbox_enabled:
+            if not self.paystack_test_secret or len(self.paystack_test_secret.get_secret_value()) <= 8:
+                raise ValueError("Enabled sandbox checkout requires a Paystack test secret key.")
+            if self.app_env.lower() == "production" and not self.private_beta:
+                raise ValueError("A hosted sandbox must use private beta access.")
+            callback = urlsplit(self.app_url)
+            if (not callback.hostname or callback.username or callback.password or callback.path not in ("", "/")
+                    or callback.query or callback.fragment or
+                    (callback.scheme != "https" and not (callback.scheme == "http" and
+                     callback.hostname in {"localhost", "127.0.0.1", "::1"}))):
+                raise ValueError("Sandbox checkout needs an HTTPS APP_URL or a loopback HTTP APP_URL.")
+        return self
 
     @model_validator(mode="after")
     def production_settings(self):

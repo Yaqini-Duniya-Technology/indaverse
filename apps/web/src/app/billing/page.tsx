@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ApiError, apiFetch } from "@/lib/api";
+import SandboxCheckout from "./SandboxCheckout";
 
 type Plan = {
   name: string; monthly_kobo: number | null; annual_kobo: number | null;
@@ -101,7 +102,7 @@ export default function BillingPage() {
         </section>
         <section aria-labelledby="plans">
           <h2 id="plans" className="text-2xl font-semibold">Compare plans</h2>
-          <p className="mt-2 text-zinc-300">Checkout is not available yet. Unset prices have not been confirmed.</p>
+          <p className="mt-2 text-zinc-300">Unset prices have not been confirmed. Only configured test offers can be selected below.</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Object.entries(policy.plans).map(([key, plan]) => <article key={key} className="space-y-2 rounded-lg border border-zinc-700 bg-zinc-900 p-4">
               <h3 className="text-lg font-semibold">{plan.name}{key === wallet.plan_key ? " · Current" : ""}</h3>
@@ -113,6 +114,7 @@ export default function BillingPage() {
             </article>)}
           </div>
         </section>
+        <SandboxCheckout onPaymentVerified={() => setReload((value) => value + 1)} />
         <section aria-labelledby="costs">
           <h2 id="costs" className="text-2xl font-semibold">AI credit costs</h2>
           {Object.keys(policy.action_costs).length ? <ul className="mt-3 list-disc pl-6">

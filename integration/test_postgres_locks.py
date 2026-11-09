@@ -207,3 +207,55 @@ def test_credit_reservations_serialize_per_wallet(monkeypatch):
             assert (state["available"], state["reserved"]) == (1, 5)
     finally:
         engine.dispose()
+
+
+def test_sandbox_webhook_and_manual_verify_grant_once_on_postgres(monkeypatch):
+    from uuid import uuid4
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from app.core.config import settings
+    from app.core.payment_policy import CreditBundle
+    from app.database.connection import Base
+    from app.models.user import User
+    from app.services import payments, paystack
+    from app.services.credits import utc_now, wallet_summary
+
+    parsed = urlsplit(URL)
+    assert parsed.hostname in ("localhost", "127.0.0.1") and parsed.path.startswith("/indaverse_test_")
+    engine = create_engine(URL.replace("postgresql://", "postgresql+psycopg://", 1),
+                           connect_args={"options": "-c lock_timeout=5000 -c statement_timeout=10000"})
+    Base.metadata.create_all(engine)
+    monkeypatch.setattr(settings, "credit_bundles", {
+        "starter": CreditBundle(name="Test bundle", credits=11, amount_kobo=250000),
+    })
+    monkeypatch.setattr(paystack, "initialize", lambda *_: "https://checkout.paystack.com/fixture")
+    email = "payments-lock@example.com"
+    user_id = 750
+    try:
+        with Session(engine) as db, db.begin():
+            db.add(User(id=user_id, email=email, username="payments-lock", hashed_password="fixture", is_active=True))
+        with Session(engine) as db:
+            ref = payments.create_checkout(db, user_id, email, "bundle-starter", 250000, 11, str(uuid4()))["reference"]
+
+        barrier = Barrier(2)
+
+        def verified(reference):
+            barrier.wait(timeout=5)
+            return {"status": "success", "domain": "test", "currency": "NGN",
+                    "id": 800, "amount": 250000, "reference": reference,
+                    "customer": {"email": email}, "paid_at": utc_now().isoformat() + "Z"}
+
+        monkeypatch.setattr(paystack, "verify", verified)
+
+        def confirm(source):
+            with Session(engine) as db:
+                return payments.reconcile(db, ref, user_id=user_id if source == "manual" else None, source=source)
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            assert [result["state"] for result in pool.map(confirm, ("manual", "webhook"))] == ["paid", "paid"]
+        with Session(engine) as db:
+            assert wallet_summary(db, user_id)["available"] == 11
+    finally:
+        engine.dispose()

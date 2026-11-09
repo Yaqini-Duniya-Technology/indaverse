@@ -7,8 +7,8 @@ release gate. A passing local fixture does not imply live service verification.
 | Batch | Status | Remaining acceptance |
 | --- | --- | --- |
 | 1. Private beta | Invite enforcement, admin CLI and registration form implemented | Hosted HTTPS, production database and media, audit and alerting, restore rehearsal and tester onboarding |
-| 2. Credits and entitlements | Ledger, reservations, plans, wallet, operator grants and server quotas implemented | PostgreSQL CI, hosted beta verification, provider-backed job/payment reconciliation, team seats and community download permissions |
-| 3. Sandbox payments | Open | Test checkout, authenticated webhook and provider reconciliation, duplicate delivery and billing lifecycle checks |
+| 2. Credits and entitlements | Ledger, reservations, plans, wallet, operator grants and server quotas implemented | Hosted beta verification, provider-backed job/payment reconciliation, team seats and community download permissions |
+| 3. Sandbox payments | Paystack test checkout, authenticated webhook, independent verification, history and prepaid plans implemented | Genuine provider test transaction and webhook delivery; automatic renewal, plan switching, refunds and disputes |
 | 4. AI | Open | Provider integration, private outputs, limits, worker retries, credit settlement and real sandbox verification |
 | 5. Publishing | Open | Studio publishing, visibility and download controls, ownership, unpublish and moderation |
 | 6. Community | Open | Profiles, discovery, following, reactions, reports, messaging, block/mute and moderator workflows |
@@ -20,3 +20,5 @@ The draft branch does not authorize paid hosting, provider spending, live
 payments, or public signups. Keep those disabled until explicitly approved.
 
 See [credits and entitlements](CREDITS-AND-ENTITLEMENTS.md) for configuration and verification.
+
+See [Paystack sandbox payments](PAYSTACK-SANDBOX.md) for the test-mode runbook.
