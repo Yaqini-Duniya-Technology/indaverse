@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { apiFetch } from "@/lib/api";
 
 type Product = { key: string; title: string; amount_kobo: number; credits: number; plan: string | null };
@@ -22,6 +22,13 @@ function safeCheckout(url: string | null): url is string {
   return !!url && /^https:\/\/checkout\.paystack\.com\/[A-Za-z0-9_-]{1,150}$/.test(url);
 }
 
+function readCheckout(signal?: AbortSignal) {
+  return Promise.all([
+    apiFetch<Catalog>(endpoint + "/catalog", { signal }),
+    apiFetch<History>(endpoint + "/history", { signal }),
+  ]);
+}
+
 const noSubscribe = () => () => {};
 const readReturned = () => {
   const params = new URLSearchParams(window.location.search);
@@ -39,23 +46,23 @@ export default function SandboxCheckout({ onPaymentVerified }: { onPaymentVerifi
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const refresh = useCallback(async (signal?: AbortSignal) => {
-    const [offers, receipts] = await Promise.all([
-      apiFetch<Catalog>(endpoint + "/catalog", { signal }),
-      apiFetch<History>(endpoint + "/history", { signal }),
-    ]);
-    if (signal?.aborted) return;
+  async function refresh() {
+    const [offers, receipts] = await readCheckout();
     setCatalog(offers);
     setHistory(receipts);
-  }, []);
+  }
 
   useEffect(() => {
     const abort = new AbortController();
-    refresh(abort.signal).catch((cause: unknown) => {
+    readCheckout(abort.signal).then(([offers, receipts]) => {
+      if (abort.signal.aborted) return;
+      setCatalog(offers);
+      setHistory(receipts);
+    }).catch((cause: unknown) => {
       if (!abort.signal.aborted) setError(cause instanceof Error ? cause.message : "Could not load test checkout.");
     });
     return () => abort.abort();
-  }, [refresh]);
+  }, []);
 
   async function verify(reference: string) {
     setBusy(true); setError(""); setNotice("");
