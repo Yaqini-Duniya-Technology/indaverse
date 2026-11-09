@@ -29,3 +29,5 @@ from app.models.video_sequence import VideoSequence, VideoSequenceRevision, Vide
 from app.models.music_session import MusicSession
 from app.models.creator_delivery import CreatorDelivery
 from app.models.beta_access import BetaAccess, BetaInvite
+
+from app.models.credits import CreditAccount, CreditEntry, CreditLot, CreditReservation, DownloadUsage

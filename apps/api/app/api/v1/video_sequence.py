@@ -11,6 +11,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
+from app.services.credits import check_storage
 from app.api.v1.dependencies import get_current_user
 from app.api.v1.video_clip_export import available_tools, render_slot
 from app.api.v1.video_projects import owned_video_project
@@ -18,8 +19,10 @@ from app.database.connection import get_db
 from app.models.user import User
 from app.models.video_sequence import VideoSequence, VideoSequenceRevision, VideoSequenceSoundtrack, VideoSequenceSource
 from app.services import clip_export, sequence_export as export, sequence_soundtrack as music
-from app.services.export_response import private_download
+from app.services.export_response import metered_download
 from app.services.video_delivery import POSTER_TAIL_MS, build_kit
+
+from app.services.export_response import guard_download_origin
 
 router = APIRouter(prefix="/projects/{project_id}/video/sequence", tags=["Video Studio"])
 
@@ -168,6 +171,7 @@ def add_source(db, project_id, user_id, version, name, duration, content):
     end = min(5000, duration, remaining)
     if end < export.MIN_SEGMENT_MS:
         raise HTTPException(422, "Shorten the saved sequence before adding this clip.")
+    check_storage(db, user_id, len(content))
     if sequence is None:
         sequence = VideoSequence(project_id=project_id, version=0, clips=[])
         db.add(sequence)
@@ -236,6 +240,7 @@ def store_soundtrack(db, project_id, user_id, version, name, audio_format, durat
         raise HTTPException(422, "Add a video clip before attaching a soundtrack.")
     record_revision(db, sequence)
     track = db.get(VideoSequenceSoundtrack, project_id)
+    check_storage(db, user_id, len(content) - (len(track.content) if track else 0))
     if track is None:
         track = VideoSequenceSoundtrack(project_id=project_id)
         db.add(track)
@@ -392,7 +397,7 @@ def preview_source(project_id: int, source_id: str,
     return Response(source.content, media_type="video/mp4", headers={"Cache-Control": "no-store"})
 
 
-@router.get("/captions.{extension}")
+@router.get("/captions.{extension}", dependencies=[Depends(guard_download_origin)])
 def download_captions(project_id: int, extension: Literal["srt", "vtt"], version: int = Query(ge=0),
                       user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     sequence, _ = load(db, project_id, user.id, lock=True, version=version)
@@ -400,7 +405,7 @@ def download_captions(project_id: int, extension: Literal["srt", "vtt"], version
     content = export.captions_file(sequence.clips if sequence else [], vtt=vtt)
     if not content:
         raise HTTPException(422, "Save at least one caption before downloading.")
-    return private_download(content, media_type="text/vtt; charset=utf-8" if vtt else "application/x-subrip",
+    return metered_download(db, user.id, content, media_type="text/vtt; charset=utf-8" if vtt else "application/x-subrip",
                             filename=f"indaverse-{project_id}-captions.{extension}")
 
 
@@ -409,7 +414,8 @@ def render_sequence(project_id: int, version: int = Query(ge=0),
                     preset: export.Preset = "landscape", burn_captions: bool = False,
                     user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     content = render_saved(db, project_id, user.id, version, preset, burn_captions)
-    return private_download(content, media_type="video/mp4", filename=f"indaverse-{project_id}-sequence.mp4")
+    return metered_download(db, user.id, content, media_type="video/mp4", filename=f"indaverse-{project_id}-sequence.mp4",
+                            edge=max(export.CANVASES[preset]))
 
 
 @router.post("/delivery")
@@ -426,7 +432,8 @@ def export_delivery(project_id: int, version: int = Query(ge=0),
 
     content = render_saved(db, project_id, user.id, version, preset, burn_captions,
                            package=package, poster_ms=poster_ms)
-    return private_download(content, media_type="application/zip", filename=f"indaverse-{project_id}-delivery.zip")
+    return metered_download(db, user.id, content, media_type="application/zip", filename=f"indaverse-{project_id}-delivery.zip",
+                            premium=True, edge=max(export.CANVASES[preset]))
 
 
 def render_saved(db, project_id, user_id, version, preset, burn_captions, *, package=None, poster_ms=None):

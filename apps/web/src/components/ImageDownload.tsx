@@ -8,8 +8,11 @@ export default function ImageDownload({ projectId, imageId }: { projectId: numbe
     if (busy) return;
     setBusy(true); setMessage("");
     try {
-      const response = await fetch(`${IMAGE_API_URL}/api/v1/projects/${projectId}/images/${imageId}/content`, { credentials: "include" });
-      if (!response.ok) throw new Error("Image download unavailable. Check your session and retry.");
+      const response = await fetch(`${IMAGE_API_URL}/api/v1/projects/${projectId}/images/${imageId}/download`, { method: "POST", credentials: "include" });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(typeof error?.detail === "string" ? error.detail : "Image download unavailable. Check your session and retry.");
+      }
       const blob = await response.blob();
       const suffix = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
       const url = URL.createObjectURL(blob), link = document.createElement("a");

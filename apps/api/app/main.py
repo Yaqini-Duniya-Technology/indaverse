@@ -132,3 +132,6 @@ app.include_router(music_session_router, prefix="/api/v1")
 
 from app.api.v1.creator_delivery import router as creator_delivery_router
 app.include_router(creator_delivery_router, prefix="/api/v1")
+
+from app.api.v1.credits import router as credits_router
+app.include_router(credits_router, prefix="/api/v1")

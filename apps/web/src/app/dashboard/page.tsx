@@ -218,6 +218,7 @@ export default function DashboardPage() {
           <Link href="/dashboard" aria-current="page">Overview</Link>
           <a href="#studios">Creative studios</a>
           <a href="#projects">My projects</a>
+          <Link href="/billing">Credits and plans</Link>
         </nav>
         <button className={styles.primary} onClick={() => openCreate()}>+ New project</button>
         <div className={styles.sidebarNote}>

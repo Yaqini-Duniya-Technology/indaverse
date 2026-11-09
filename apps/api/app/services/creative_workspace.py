@@ -3,6 +3,7 @@ from copy import deepcopy
 
 from sqlalchemy import inspect, select
 
+from app.services.credits import check_project_creation
 from app.models import (
     GamePlaySettings, GameProject, GameScene, MusicProject, Project,
     SoftwareProject, StoryCharacters, StoryProject, StoryScenes, VideoProject,
@@ -30,6 +31,7 @@ def without_image_links(value):
 
 
 def duplicate_saved_project(db, source, name):
+    check_project_creation(db, source.user_id, source.project_type)
     copy = Project(
         user_id=source.user_id, name=name, project_type=source.project_type,
         description=source.description, visibility="private",

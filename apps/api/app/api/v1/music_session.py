@@ -183,13 +183,13 @@ def render_mix(db, project_id, user_id, version, output_format, start=0, end=Non
 def download_mix(project_id: int, output_format: Literal["wav", "mp3"], version: int = Query(ge=1),
                  user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     from app.api.v1.video_clip_export import render_slot
-    from app.services.export_response import private_download
+    from app.services.export_response import metered_download
 
     if not render_slot.acquire(blocking=False):
         raise HTTPException(429, "The media renderer is busy. Try again shortly.")
     try:
         content = render_mix(db, project_id, user.id, version, output_format)
-        return private_download(content, media_type="audio/wav" if output_format == "wav" else "audio/mpeg",
+        return metered_download(db, user.id, content, media_type="audio/wav" if output_format == "wav" else "audio/mpeg",
                                 filename=f"indaverse-mix-v{version}.{output_format}")
     finally:
         render_slot.release()

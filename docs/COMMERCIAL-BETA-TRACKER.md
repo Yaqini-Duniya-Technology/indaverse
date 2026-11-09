@@ -7,7 +7,7 @@ release gate. A passing local fixture does not imply live service verification.
 | Batch | Status | Remaining acceptance |
 | --- | --- | --- |
 | 1. Private beta | Invite enforcement, admin CLI and registration form implemented | Hosted HTTPS, production database and media, audit and alerting, restore rehearsal and tester onboarding |
-| 2. Credits and entitlements | Open | Ledger, reservations, quotas, usage reconciliation, tier controls and administrative grants |
+| 2. Credits and entitlements | Ledger, reservations, plans, wallet, operator grants and server quotas implemented | PostgreSQL CI, hosted beta verification, provider-backed job/payment reconciliation, team seats and community download permissions |
 | 3. Sandbox payments | Open | Test checkout, authenticated webhook and provider reconciliation, duplicate delivery and billing lifecycle checks |
 | 4. AI | Open | Provider integration, private outputs, limits, worker retries, credit settlement and real sandbox verification |
 | 5. Publishing | Open | Studio publishing, visibility and download controls, ownership, unpublish and moderation |
@@ -18,3 +18,5 @@ release gate. A passing local fixture does not imply live service verification.
 
 The draft branch does not authorize paid hosting, provider spending, live
 payments, or public signups. Keep those disabled until explicitly approved.
+
+See [credits and entitlements](CREDITS-AND-ENTITLEMENTS.md) for configuration and verification.

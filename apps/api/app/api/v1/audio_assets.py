@@ -13,7 +13,9 @@ from fastapi import (
 )
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
+from app.services.credits import check_storage
 from app.api.v1.dependencies import get_current_user
 from app.database.connection import get_db
 from app.models.audio_asset import AudioAsset
@@ -171,6 +173,7 @@ async def upload_audio(
                 output_file.write(chunk)
         if file_size == 0:
             raise HTTPException(status_code=400, detail="Audio file cannot be empty.")
+        await run_in_threadpool(check_storage, db, current_user.id, file_size)
         audio_asset = AudioAsset(
             project_id=project_id,
             original_filename=original_filename[:255],

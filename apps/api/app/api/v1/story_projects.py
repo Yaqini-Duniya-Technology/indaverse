@@ -11,6 +11,8 @@ from app.models.story_project import StoryProject
 from app.models.user import User
 from app.schemas.story_project import StoryResponse, StorySave
 
+from app.services.export_response import guard_download_origin
+
 router = APIRouter(prefix="/projects/{project_id}/story", tags=["Story Studio"])
 
 
@@ -72,10 +74,10 @@ def save_story(
         db.rollback()
         raise
 
-@router.get("/manuscript/{format}")
+@router.get("/manuscript/{format}", dependencies=[Depends(guard_download_origin)])
 def export_manuscript(project_id: int, format: Literal["html", "epub"], version: int,
                       user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    from app.services.export_response import private_download
+    from app.services.export_response import metered_download
     from app.services.manuscript_export import manuscript_epub, manuscript_html
 
     story = get_story(project_id, user, db)
@@ -87,7 +89,7 @@ def export_manuscript(project_id: int, format: Literal["html", "epub"], version:
     else:
         content = manuscript_epub(project_id, story.version, story.title, story.synopsis, story.chapters)
         media_type = "application/epub+zip"
-    return private_download(content, media_type=media_type, filename=f"indaverse-manuscript-v{version}.{format}")
+    return metered_download(db, user.id, content, media_type=media_type, filename=f"indaverse-manuscript-v{version}.{format}")
 
 
 from app.api.v1.story_characters import router as story_characters_router

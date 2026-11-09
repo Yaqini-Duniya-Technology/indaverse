@@ -4,6 +4,8 @@ from urllib.parse import urlsplit
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.credit_policy import CreditPolicy, default_credit_policy
+
 BASE_DIR = Path(__file__).resolve().parents[4]
 ENV_FILE = BASE_DIR / ".env"
 
@@ -18,6 +20,8 @@ class Settings(BaseSettings):
     redis_url: str
     secret_key: str
     private_beta: bool = False
+    credit_enforcement: bool = False
+    credit_policy: CreditPolicy = Field(default_factory=default_credit_policy)
     cookie_secure: bool = False
     video_clip_export_enabled: bool = False
     access_token_expire_minutes: int = Field(default=60, ge=5, le=1440)

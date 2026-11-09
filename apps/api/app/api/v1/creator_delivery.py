@@ -20,8 +20,10 @@ from app.models.video_sequence import VideoSequenceSource
 from app.schemas.creator_delivery import CampaignSave, PilotRequest, PlaytestReport
 from app.schemas.game_scene import SceneLayout
 from app.services import creative_pilot
-from app.services.export_response import private_download
+from app.services.export_response import metered_download
 from app.services.playable_scene import build_scene
+
+from app.services.export_response import guard_download_origin
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["Creator Delivery"])
 
@@ -73,12 +75,12 @@ def record_report(project_id: int, data: PlaytestReport, user: User = Depends(ge
     return result
 
 
-@router.get("/game/browser-build.html")
+@router.get("/game/browser-build.html", dependencies=[Depends(guard_download_origin)])
 def game_download(project_id: int, version: int, user: User = Depends(get_current_user),
                   db: Session = Depends(get_db)):
     owned_game_project(db, project_id, user.id)
     layout = saved_scene(db, project_id, version)
-    return private_download(build_scene(layout), media_type="text/html", filename=f"indaverse-playable-v{version}.html")
+    return metered_download(db, user.id, build_scene(layout), media_type="text/html", filename=f"indaverse-playable-v{version}.html")
 
 
 def check_assets(db, user_id, posts):
@@ -127,7 +129,7 @@ def save_campaign(project_id: int, data: CampaignSave, user: User = Depends(get_
     return {"version": store(db, project_id, "campaign", row, payload), **payload}
 
 
-@router.get("/campaign/handoff.json")
+@router.get("/campaign/handoff.json", dependencies=[Depends(guard_download_origin)])
 def campaign_handoff(project_id: int, version: int, user: User = Depends(get_current_user),
                      db: Session = Depends(get_db)):
     owned(db, project_id, user.id)
@@ -138,7 +140,7 @@ def campaign_handoff(project_id: int, version: int, user: User = Depends(get_cur
     posts = [{**post, "tracked_url": tracked_url(post)} for post in row.data["posts"]]
     payload = {"schema_version": 1, "name": row.data["name"], "campaign_version": row.version,
                "posts": posts, "delivery": "manual", "assets": "Private references only; no media included."}
-    return private_download((json.dumps(payload, ensure_ascii=False, indent=2) + "\n").encode(),
+    return metered_download(db, user.id, (json.dumps(payload, ensure_ascii=False, indent=2) + "\n").encode(),
                             media_type="application/json", filename=f"campaign-v{version}.json")
 
 

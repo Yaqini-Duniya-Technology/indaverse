@@ -300,3 +300,14 @@ test("review a local adapter draft, link a private image and export a scheduled 
   expect(body.posts[0].assets).toHaveLength(1);
   expect(body.delivery).toBe("manual");
 });
+
+test('billing shows private wallet, quotas and unapproved NGN prices', async ({page}) => {
+  await account(page);
+  await page.getByRole('link', {name: 'Credits and plans', exact: true}).click();
+  await expect(page).toHaveURL(/\/billing$/);
+  await expect(page.getByRole('heading', {name: 'Your wallet · Free'})).toBeVisible();
+  await expect(page.getByText(/0 used · 5 remaining/)).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'Creator Pro'})).toBeVisible();
+  await expect(page.getByText('Monthly: Not set · Annual: Not set').first()).toBeVisible();
+  await expect(page.getByText('No credit transactions yet.')).toBeVisible();
+});
